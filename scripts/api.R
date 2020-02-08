@@ -12,7 +12,7 @@ client_id <- read.table('client_id')
 client_sec <- read.table('client_secret')
 Sys.setenv(SPOTIFY_CLIENT_ID = client_id)
 Sys.setenv(SPOTIFY_CLIENT_SECRET = client_sec)
-atoken <- get_spotify_access_token()
+token <- get_spotify_access_token()
 
 # Get top 50 from various countries ----
 # get my playlists
