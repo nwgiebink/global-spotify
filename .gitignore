@@ -39,7 +39,6 @@ vignettes/*.pdf
 .Renviron
 
 # large files
-data/top_tracks.rds
 
 # Private files
 client_id
