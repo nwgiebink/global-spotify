@@ -19,3 +19,6 @@ spot_clean <- select(top_tracks, -added_at, -is_local, -primary_color, -contains
   mutate(duration_min = (track.duration_ms/1000)/60) %>%
   select(-track.duration_ms)
 
+# 1) What attributes are in our data set?
+glimpse(spot_clean)
+
