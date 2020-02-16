@@ -22,3 +22,4 @@ spot_clean <- select(top_tracks, -added_at, -is_local, -primary_color, -contains
 # 1) What attributes are in our data set?
 glimpse(spot_clean)
 
+# 2)
