@@ -29,6 +29,12 @@ spot_clean <- mutate(spot_clean, country = str_remove(spot_clean$name,
 spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country, 
                                                        pattern = "China Hits 2019 - China - China 2019", 
                                                        replacement = 'China'))
+# finding and deleting missing values
+spot_clean <- filter(spot_clean, complete.cases(spot_clean))
+glimpse(spot_clean)
+
+
+
 
 # TEST CASE (not for assignment): did country labels work?
 
