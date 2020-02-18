@@ -37,15 +37,23 @@ spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country,
 # finding and deleting missing values
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
 
+# make countries 'rankable' (e.g. in a plot) by converting to factor
+spot_clean$country <- factor(spot_clean$country, 
+                             levels = unique(spot_clean$country))
 
-# TEST CASE (not for assignment): did country labels work?
+# TEST CASES (not for assignment): did country labels work?
 
 # rank countries by mean track popularity 
 pop <- spot_clean %>% group_by(country) %>% 
   summarise(popularity = mean(track.popularity)) %>% 
   arrange(desc(popularity))
 
-
+# plot track popularity by country, ranked
+ggplot(spot_clean, aes(reorder(country, -track.popularity), track.popularity)) +
+  geom_violin(draw_quantiles = 0.5)+
+  theme(axis.text.x = element_text(angle = 90))+
+  xlab('Country') +
+  ylab('Top 50 Track Popularity')
 
 # 1. ---- 
 #' What attributes are in our data set? 
@@ -141,3 +149,17 @@ print(paste('mean_valence ~ mean_binned adjusted R-squared =', r_bin$adj.r.squar
 #' If you have categorical attributes, use the concept hierarchy generation heuristics 
 #' (based on attribute value counts) suggested in the textbook to produce some concept hierarchies. 
 #' How well is this approach work for your attributes?
+
+# list the nominal variables which may be included in the hierarchy
+glimpse(select_if(spot_clean, is.character))
+
+# select only the variables to be included in the hierarchy
+hier <- select(spot_clean, track.id, track.album.id, playlist = name)
+
+# pivot_longer(), group_by() variable, filter(unique((item)) summarise n() for each variable, arrange(desc)
+hier <- hier %>% pivot_longer(cols = c(track.id, track.album.id, playlist), 
+                      names_to = 'layer', values_to = 'item') #%>%
+  filter(item %in% unique(hier$item)) #%>% doesn't work. returns way more than length(unique(hier$item))
+  group_by(layer) %>%
+  summarise(count = n()) 
+
