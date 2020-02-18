@@ -1,6 +1,6 @@
 # Preprocessing
 # 2020/2/16
-# Noah Giebink
+# Noah Giebink, Sebasitan Deimen
 
 # packages
 #install.packages("tidyverse")
@@ -8,6 +8,7 @@
 #install.packages("corrplot")
 #install.packages('discretization')
 #install.packages('ggpubr')
+#install.packages("ggarrange")
 library(tidyverse)
 library(lubridate)
 library(corrplot)
@@ -68,7 +69,7 @@ hist(spot_clean$valence)
   # pretty normal, maybe a tad left-skewed
 
 # is valence predicted by country?
-val_lm <- lm(valence~country, data = spot_clean)
+val_lm <- lm(valence~country, data = spot_clean)        # there is no answer to your question - if we ask - we should give an answer
 # summary(val_lm) (p < 2.2e-16)
 
 # Method 1: chi merge (package discretization)
@@ -93,7 +94,7 @@ plot_merg <- ggplot(spot_clean, aes(x = merged_valence, y = valence))+
   geom_jitter(alpha = 0.2)
 plot_bin <- ggplot(spot_clean, aes(x = binned_valence, y = valence))+
   geom_jitter(alpha = 0.2)
-ggarrange(plot_merg, plot_bin)
+ggarrange(plot_merg, plot_bin)                                         # unfortunately I can't look at that, cuz ggarange is not for R 3.6.2....... :-()
 
 #' 3. Conclusion A: Without a solid class label to discretize over,
 #' an arbitrary-but-even binning method like histogram might be better.
@@ -135,7 +136,7 @@ print(paste('mean_valence ~ mean_merged adjusted R-squared =', r_merg$adj.r.squa
 print(paste('mean_valence ~ mean_binned adjusted R-squared =', r_bin$adj.r.squared))
 
 #' 3. Conclusion B: the mean valence of a country is predicted SLIGHTLY better
-#' by the mean of its valence discretized by binning compared to chimerge
+#' by the mean of its valence discretized by histogram binning compared to chimerge
 
 # 4. ----
 #' If you have categorical attributes, use the concept hierarchy generation heuristics 
