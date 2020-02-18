@@ -7,11 +7,14 @@
 #install.packages("lubridate")
 #install.packages("corrplot")
 #install.packages('discretization')
+#install.packages('ggpubr')
 library(tidyverse)
 library(lubridate)
 library(corrplot)
 library(discretization)
+library(ggarrange)
 
+# Data Cleaning ----
 # data
 spot <- readRDS('data/top_tracks.rds')
 
@@ -42,26 +45,35 @@ pop <- spot_clean %>% group_by(country) %>%
   summarise(popularity = mean(track.popularity)) %>% 
   arrange(desc(popularity))
 
-# 1) What attributes are in our data set?
+
+
+# 1. ---- 
+#' What attributes are in our data set? 
 glimpse(spot_clean)
 
-#' 2. Do you have highly correlated attributes? 
+# 2. ----
+#' Do you have highly correlated attributes? ----
 #' How did you find out about the correlations or lack of correlations?
 spot_num <- select_if(spot_clean, is.numeric)
 spot_cor <- cor(spot_num) # make correlation matrix
 corrplot(spot_cor) # find (lack of) correlations by visualizing corrplot
 
-#' 3. Do you have numerical attributes that you might want to discretize? 
+# 3. ----
+#' Do you have numerical attributes that you might want to discretize? 
 #' Try at least two methods and compare the differences.
-  # chiMerge (package discretization)
-  # discretize attribute 'valence' over class 'country'
-  # note: maybe a silly example, but conceptually sound...
+
+# Overview: what is the distribution of valence values like?
+qqnorm(spot_clean$valence)
+hist(spot_clean$valence)
+  # pretty normal, maybe a tad left-skewed
 
 # is valence predicted by country?
 val_lm <- lm(valence~country, data = spot_clean)
 # summary(val_lm) (p < 2.2e-16)
 
-# do chi merge
+# Method 1: chi merge (package discretization)
+# discretize attribute 'valence' over class 'country'
+# note: maybe an odd example, but good for the exercise...
 val_d <- select(spot_clean, valence, country)
 val_d <- chiM(val_d)
 
@@ -71,15 +83,61 @@ unique(val_d$Disc.data$valence)
 # add new column to spot_clean with discretized valence values
 spot_clean$merged_valence <- val_d$Disc.data$valence
 
-# compare with top-down histogram method  
+# compare with top-down, unsupervised method: histogram  
+spot_clean$binned_valence <- cut(spot_clean$valence, 5, 
+                                 labels=c(1,2,3,4,5))
 
 
-# Answer: we tried the histogram method and binned the numeric attribute into 5 bins
-hist(spot_clean$valence)
-spot_clean$binned_valence <- cut(spot_clean$valence, 5, labels=c("baaad mood","unhappy","medium happy","happy", "happy like crazy"))
-spot_clean$binned_valence
+# visually compare differences between chimerge and histogram methods
+plot_merg <- ggplot(spot_clean, aes(x = merged_valence, y = valence))+
+  geom_jitter(alpha = 0.2)
+plot_bin <- ggplot(spot_clean, aes(x = binned_valence, y = valence))+
+  geom_jitter(alpha = 0.2)
+ggarrange(plot_merg, plot_bin)
+
+#' 3. Conclusion A: Without a solid class label to discretize over,
+#' an arbitrary-but-even binning method like histogram might be better.
+#' The chi merge bins are much more irregular in width and sample number. 
+#' Chi merge made a HUGE bin close to the worldwide mean valence. 
+#' This could be caused by difficulty in defining a significant bin
+#' where many countries overlap in valence value,
+#' which would lead to a larger and larger bin width. Perhaps?
 
 
-#' 4. If you have categorical attributes, use the concept hierarchy generation heuristics 
+# which discretization method preserves the countries' mean valence better?
+# Normalize valence, binned_valence, and merged_valence to compare magnitude
+norm <- function(variable){(variable - min(variable))/(max(variable) - min(variable))}
+
+spot_ordered <- spot_clean %>% 
+  select(country, valence, binned_valence, merged_valence) %>%
+  group_by(country) %>%
+  summarise(mean_valence = mean(valence), 
+            mean_merged = mean(merged_valence),
+            mean_binned = mean(as.numeric(binned_valence))) %>%
+  mutate(mean_merged = norm(mean_merged), 
+         mean_binned = norm(mean_binned),
+         mean_valence = norm(mean_valence)) %>%
+  arrange(desc(mean_valence))
+spot_ordered
+
+# plot mean normalized valence (by country) against mean normlized merged valence
+ggplot(spot_ordered, aes(x = mean_merged, y = mean_valence))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+# plot mean normalized valence against mean binned valence
+ggplot(spot_ordered, aes(x = mean_binned, y = mean_valence))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+r_merg <- summary(lm(spot_ordered$mean_valence~spot_ordered$mean_merged))
+r_bin <- summary(lm(spot_ordered$mean_valence~spot_ordered$mean_binned))
+print(paste('mean_valence ~ mean_merged adjusted R-squared =', r_merg$adj.r.squared))
+print(paste('mean_valence ~ mean_binned adjusted R-squared =', r_bin$adj.r.squared))
+
+#' 3. Conclusion B: the mean valence of a country is predicted SLIGHTLY better
+#' by the mean of its valence discretized by binning compared to chimerge
+
+# 4. ----
+#' If you have categorical attributes, use the concept hierarchy generation heuristics 
 #' (based on attribute value counts) suggested in the textbook to produce some concept hierarchies. 
 #' How well is this approach work for your attributes?
