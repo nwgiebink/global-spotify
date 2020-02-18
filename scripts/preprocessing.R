@@ -6,9 +6,11 @@
 #install.packages("tidyverse")
 #install.packages("lubridate")
 #install.packages("corrplot")
+#install.packages('discretization')
 library(tidyverse)
 library(lubridate)
 library(corrplot)
+library(discretization)
 
 # data
 spot <- readRDS('data/top_tracks.rds')
@@ -31,7 +33,7 @@ spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country,
                                                        replacement = 'China'))
 # finding and deleting missing values
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
-glimpse(spot_clean)
+
 
 
 
@@ -49,11 +51,31 @@ glimpse(spot_clean)
 #' 2. Do you have highly correlated attributes? 
 #' How did you find out about the correlations or lack of correlations?
 spot_num <- select_if(spot_clean, is.numeric)
-spot_cor <- cor(spot_num)
-corrplot(spot_cor)
+spot_cor <- cor(spot_num) # make correlation matrix
+corrplot(spot_cor) # find (lack of) correlations by visualizing corrplot
 
 #' 3. Do you have numerical attributes that you might want to discretize? 
 #' Try at least two methods and compare the differences.
+  # chiMerge (package discretization)
+  # discretize attribute 'valence' over class 'country'
+  # note: maybe a silly example, but conceptually sound...
+
+# is valence predicted by country?
+val_lm <- lm(valence~country, data = spot_clean)
+# summary(val_lm) (p < 2.2e-16)
+
+# do chi merge
+val_d <- select(spot_clean, valence, country)
+val_d <- chiM(val_d)
+
+# what are the discretized values?
+unique(val_d$Disc.data$valence)
+
+# add new column to spot_clean with discretized valence values
+spot_clean$merged_valence <- val_d$Disc.data$valence
+
+# compare with top-down histogram method  
+
 
 #' 4. If you have categorical attributes, use the concept hierarchy generation heuristics 
 #' (based on attribute value counts) suggested in the textbook to produce some concept hierarchies. 
