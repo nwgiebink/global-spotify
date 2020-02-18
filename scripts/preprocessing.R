@@ -28,7 +28,8 @@ spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country,
                                                        replacement = 'China'))
 # finding and deleting missing values
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
-glimpse(spot_clean)
+
+
 
 
 
@@ -48,6 +49,12 @@ glimpse(spot_clean)
 
 #' 3. Do you have numerical attributes that you might want to discretize? 
 #' Try at least two methods and compare the differences.
+
+# Answer: we tried the histogram method and binned the numeric attribute into 5 bins
+hist(spot_clean$valence)
+spot_clean$binned_valence <- cut(spot_clean$valence, 5, labels=c("baaad mood","unhappy","medium happy","happy", "happy like crazy"))
+spot_clean$binned_valence
+
 
 #' 4. If you have categorical attributes, use the concept hierarchy generation heuristics 
 #' (based on attribute value counts) suggested in the textbook to produce some concept hierarchies. 
