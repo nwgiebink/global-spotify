@@ -3,9 +3,12 @@
 # Noah Giebink
 
 # packages
+#install.packages("tidyverse")
+#install.packages("lubridate")
+#install.packages("corrplot")
 library(tidyverse)
 library(lubridate)
-library(dplyer)
+library(corrplot)
 
 # data
 spot <- readRDS('data/top_tracks.rds')
@@ -45,6 +48,9 @@ glimpse(spot_clean)
 
 #' 2. Do you have highly correlated attributes? 
 #' How did you find out about the correlations or lack of correlations?
+spot_num <- select_if(spot_clean, is.numeric)
+spot_cor <- cor(spot_num)
+corrplot(spot_cor)
 
 #' 3. Do you have numerical attributes that you might want to discretize? 
 #' Try at least two methods and compare the differences.
