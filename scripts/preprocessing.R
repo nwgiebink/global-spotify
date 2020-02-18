@@ -35,9 +35,6 @@ spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country,
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
 
 
-
-
-
 # TEST CASE (not for assignment): did country labels work?
 
 # rank countries by mean track popularity 
@@ -75,6 +72,12 @@ unique(val_d$Disc.data$valence)
 spot_clean$merged_valence <- val_d$Disc.data$valence
 
 # compare with top-down histogram method  
+
+
+# Answer: we tried the histogram method and binned the numeric attribute into 5 bins
+hist(spot_clean$valence)
+spot_clean$binned_valence <- cut(spot_clean$valence, 5, labels=c("baaad mood","unhappy","medium happy","happy", "happy like crazy"))
+spot_clean$binned_valence
 
 
 #' 4. If you have categorical attributes, use the concept hierarchy generation heuristics 

@@ -43,3 +43,4 @@ vignettes/*.pdf
 # Private files
 client_id
 client_secret
+.Rproj.user
