@@ -64,7 +64,7 @@ glimpse(spot_clean)
 #' How did you find out about the correlations or lack of correlations?
 spot_num <- select_if(spot_clean, is.numeric)
 spot_cor <- cor(spot_num) # make correlation matrix
-corrplot(spot_cor) # find (lack of) correlations by visualizing corrplot
+corrplot(spot_cor) # find correlations by visualizing corrplot
 
 # 3. ----
 #' Do you have numerical attributes that you might want to discretize? 
@@ -154,12 +154,38 @@ print(paste('mean_valence ~ mean_binned adjusted R-squared =', r_bin$adj.r.squar
 glimpse(select_if(spot_clean, is.character))
 
 # select only the variables to be included in the hierarchy
-hier <- select(spot_clean, track.id, track.album.id, playlist = name)
+hier <- select(spot_clean, song = track.id, album = track.album.id, playlist = name)
 
-# pivot_longer(), group_by() variable, filter(unique((item)) summarise n() for each variable, arrange(desc)
-hier <- hier %>% pivot_longer(cols = c(track.id, track.album.id, playlist), 
-                      names_to = 'layer', values_to = 'item') #%>%
-  filter(item %in% unique(hier$item)) #%>% doesn't work. returns way more than length(unique(hier$item))
+# Make tibbles with hierarchies ranked from lowest n (broadest) to highest n (most specific)
+
+hier <- hier %>% pivot_longer(cols = c(song, album, playlist), 
+                      names_to = 'layer', values_to = 'item') %>%
+  distinct() %>%
   group_by(layer) %>%
-  summarise(count = n()) 
+  summarise(count = n()) %>%
+  arrange(count)
+hier
+#' In the first case, I pre-selected three concepts that are actually related.
+#' This resulted in a realistic hierarchy, where playlist is broadest, then
+#' album, and finally song is most specific. 
+hier2 <- select(spot_clean, track.id, track.name, 
+                track.type, track.album.album_type, track.album.id,
+                track.album.name, name, country)
+hier2 <- hier2 %>% pivot_longer(cols = c(track.id, track.name, 
+                                track.type, track.album.album_type, 
+                                track.album.id, track.album.name, 
+                                name, country),
+                                names_to = 'layer', 
+                                values_to = 'item') %>%
+  distinct() %>%
+  group_by(layer) %>%
+  summarise(count = n()) %>%
+  arrange(count)
+hier2
 
+#' in the second case, I selected all character variables
+#' without caring whether they might be conceptually linked at all. 
+#' The concept hierarchy based on observation count alone 
+#' fails to make logical sense in this case because 
+#' not all categorical variables are connected in the first place 
+#' and some are equal in observations.
