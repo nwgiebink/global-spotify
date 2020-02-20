@@ -1,6 +1,8 @@
 # Preprocessing
 # 2020/2/16
-# Noah Giebink, Sebasitan Deimen
+
+# Noah Giebink, Sebastian Deimen
+
 
 # packages
 #install.packages("tidyverse")
@@ -80,9 +82,18 @@ spot_cor <- cor(spot_num) # make correlation matrix
 corrplot(spot_cor) # find correlations by visualizing corrplot
 # we can see that "loudness" is highly correlated with "energy", as well as "valence" is correlated with "danceability", "energy" and "loudness"
 
+#' There are correlated variables that are mostly redundant, 
+#' such as track.album.total_tracks and track.track_number
+#' as well as some correlated variables that are likely components
+#' derived from similar underlying dimensions, such as 
+#' loudness and energy, and
+#' valence, danceability, and loudness.
+
 # 3. ----
 #' Do you have numerical attributes that you might want to discretize? 
 #' Try at least two methods and compare the differences.
+
+# Variable to discretize: valence
 
 # Overview: what is the distribution of valence values like?
 qqnorm(spot_clean$valence)
@@ -140,7 +151,7 @@ spot_ordered <- spot_clean %>%
          mean_binned = norm(mean_binned),
          mean_valence = norm(mean_valence)) %>%
   arrange(desc(mean_valence))
-spot_ordered
+spot_ordered # ranked list of countries ranked by mean valence for plots & regression
 
 # plot mean normalized valence (by country) against mean normlized merged valence
 ggplot(spot_ordered, aes(x = mean_merged, y = mean_valence))+
