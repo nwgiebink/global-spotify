@@ -59,6 +59,17 @@ ggplot(spot_clean, aes(reorder(country, -track.popularity), track.popularity)) +
 #' What attributes are in our data set? 
 glimpse(spot_clean)
 
+#' We have 28 attributes, across data types logical, character, integer, 
+#' double, and factor
+
+# key should be a factor (discrete key categories)
+spot_clean$key = factor(spot_clean$key)
+# similarly, time signature should be a factor
+spot_clean$time_signature = factor(spot_clean$time_signature)
+
+# show attributes in data set again, with correct types
+glimpse(spot_clean)
+
 # 2. ----
 #' Do you have highly correlated attributes? ----
 #' How did you find out about the correlations or lack of correlations?
