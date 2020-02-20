@@ -1,6 +1,6 @@
 # Preprocessing
 # 2020/2/16
-# Noah Giebink, Sebasitan Deimen
+# Noah Giebink, Sebastian Deimen
 
 # packages
 #install.packages("tidyverse")
