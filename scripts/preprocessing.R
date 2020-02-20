@@ -13,14 +13,14 @@ library(tidyverse)
 library(lubridate)
 library(corrplot)
 library(discretization)
-library(ggarrange)
+library(ggpubr)
 
 # Data Cleaning ----
 # data
 spot <- readRDS('data/top_tracks.rds')
 
 # select relevant columns
-spot_clean <- select(top_tracks, -added_at, -is_local, -primary_color, -contains('added'), -contains('uri'),
+spot_clean <- select(spot, -added_at, -is_local, -primary_color, -contains('added'), -contains('uri'),
                            -contains('href'), -contains('url'), -track.artists, -track.available_markets, 
                            -track.disc_number, -track.episode, -track.is_local, -track.track,
                            -track.album.artists, -track.album.available_markets, -track.album.images, 
@@ -35,6 +35,7 @@ spot_clean <- mutate(spot_clean, country = str_remove(spot_clean$name,
 spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country, 
                                                        pattern = "China Hits 2019 - China - China 2019", 
                                                        replacement = 'China'))
+spot_clean <- select(spot_clean, -name)
 # finding and deleting missing values
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
 
@@ -77,6 +78,7 @@ glimpse(spot_clean)
 spot_num <- select_if(spot_clean, is.numeric)
 spot_cor <- cor(spot_num) # make correlation matrix
 corrplot(spot_cor) # find correlations by visualizing corrplot
+# we can see that "loudness" is highly correlated with "energy", as well as "valence" is correlated with "danceability", "energy" and "loudness"
 
 # 3. ----
 #' Do you have numerical attributes that you might want to discretize? 
@@ -88,7 +90,7 @@ hist(spot_clean$valence)
   # pretty normal, maybe a tad left-skewed
 
 # is valence predicted by country?
-val_lm <- lm(valence~country, data = spot_clean)        # there is no answer to your question - if we ask - we should give an answer
+val_lm <- lm(valence~country, data = spot_clean)       
 # summary(val_lm) (p < 2.2e-16)
 
 # Method 1: chi merge (package discretization)
@@ -113,7 +115,7 @@ plot_merg <- ggplot(spot_clean, aes(x = merged_valence, y = valence))+
   geom_jitter(alpha = 0.2)
 plot_bin <- ggplot(spot_clean, aes(x = binned_valence, y = valence))+
   geom_jitter(alpha = 0.2)
-ggarrange(plot_merg, plot_bin)                                         # unfortunately I can't look at that, cuz ggarange is not for R 3.6.2....... :-()
+ggarrange(plot_merg, plot_bin)                                        
 
 #' 3. Conclusion A: Without a solid class label to discretize over,
 #' an arbitrary-but-even binning method like histogram might be better.
@@ -166,7 +168,7 @@ print(paste('mean_valence ~ mean_binned adjusted R-squared =', r_bin$adj.r.squar
 glimpse(select_if(spot_clean, is.character))
 
 # select only the variables to be included in the hierarchy
-hier <- select(spot_clean, song = track.id, album = track.album.id, playlist = name)
+hier <- select(spot_clean, song = track.id, album = track.album.id, playlist = country)
 
 # Make tibbles with hierarchies ranked from lowest n (broadest) to highest n (most specific)
 
@@ -182,11 +184,11 @@ hier
 #' album, and finally song is most specific. 
 hier2 <- select(spot_clean, track.id, track.name, 
                 track.type, track.album.album_type, track.album.id,
-                track.album.name, name, country)
+                track.album.name, country)
 hier2 <- hier2 %>% pivot_longer(cols = c(track.id, track.name, 
                                 track.type, track.album.album_type, 
                                 track.album.id, track.album.name, 
-                                name, country),
+                                country),
                                 names_to = 'layer', 
                                 values_to = 'item') %>%
   distinct() %>%
