@@ -1,6 +1,6 @@
 # Preprocessing
 # 2020/2/16
-# Noah Giebink
+# Noah Giebink, Sebastian Deimen
 
 # packages
 #install.packages("tidyverse")
@@ -12,7 +12,7 @@ library(tidyverse)
 library(lubridate)
 library(corrplot)
 library(discretization)
-library(ggarrange)
+library(ggpubr)
 
 # Data Cleaning ----
 # data
@@ -77,9 +77,18 @@ spot_num <- select_if(spot_clean, is.numeric)
 spot_cor <- cor(spot_num) # make correlation matrix
 corrplot(spot_cor) # find correlations by visualizing corrplot
 
+#' There are correlated variables that are mostly redundant, 
+#' such as track.album.total_tracks and track.track_number
+#' as well as some correlated variables that are likely components
+#' derived from similar underlying dimensions, such as 
+#' loudness and energy, and
+#' valence, danceability, and loudness.
+
 # 3. ----
 #' Do you have numerical attributes that you might want to discretize? 
 #' Try at least two methods and compare the differences.
+
+# Variable to discretize: valence
 
 # Overview: what is the distribution of valence values like?
 qqnorm(spot_clean$valence)
@@ -137,7 +146,7 @@ spot_ordered <- spot_clean %>%
          mean_binned = norm(mean_binned),
          mean_valence = norm(mean_valence)) %>%
   arrange(desc(mean_valence))
-spot_ordered
+spot_ordered # ranked list of countries ranked by mean valence for plots & regression
 
 # plot mean normalized valence (by country) against mean normlized merged valence
 ggplot(spot_ordered, aes(x = mean_merged, y = mean_valence))+
@@ -165,7 +174,7 @@ print(paste('mean_valence ~ mean_binned adjusted R-squared =', r_bin$adj.r.squar
 glimpse(select_if(spot_clean, is.character))
 
 # select only the variables to be included in the hierarchy
-hier <- select(spot_clean, song = track.id, album = track.album.id, playlist = name)
+hier <- select(spot_clean, song = track.id, album = track.album.id, playlist = country)
 
 # Make tibbles with hierarchies ranked from lowest n (broadest) to highest n (most specific)
 
@@ -185,7 +194,7 @@ hier2 <- select(spot_clean, track.id, track.name,
 hier2 <- hier2 %>% pivot_longer(cols = c(track.id, track.name, 
                                 track.type, track.album.album_type, 
                                 track.album.id, track.album.name, 
-                                name, country),
+                                country),
                                 names_to = 'layer', 
                                 values_to = 'item') %>%
   distinct() %>%
