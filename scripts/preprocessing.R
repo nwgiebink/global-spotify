@@ -125,7 +125,9 @@ plot_merg <- ggplot(spot_clean, aes(x = merged_valence, y = valence))+
   geom_jitter(alpha = 0.2)
 plot_bin <- ggplot(spot_clean, aes(x = binned_valence, y = valence))+
   geom_jitter(alpha = 0.2)
-ggarrange(plot_merg, plot_bin)                                        
+ggarrange(plot_merg, plot_bin) 
+
+
 
 #' 3. Conclusion A: Without a solid class label to discretize over,
 #' an arbitrary-but-even binning method like histogram might be better.
@@ -213,3 +215,21 @@ hier2
 #' fails to make logical sense in this case because 
 #' not all categorical variables are connected in the first place 
 #' and some are equal in observations.
+
+
+# NOT REQUIRED ----
+# decision tree - classify binned_valence 
+val_tree <- rpart(formula = binned_valence ~ track.popularity + 
+                    danceability +
+                    energy +
+                    loudness +
+                    speechiness +
+                    acousticness +
+                    instrumentalness +
+                    liveness +
+                    tempo, 
+                  data = spot_clean,
+                  method = 'class')
+
+plot(val_tree, uniform=TRUE)
+text(val_tree, use.n=TRUE, all=TRUE, cex=.8)
