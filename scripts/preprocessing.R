@@ -19,7 +19,13 @@ library(ggpubr)
 # Data Cleaning ----
 # data
 spot <- readRDS('data/top_tracks.rds')
+age <- read_csv('data/ages_kaggle.csv') %>% 
+  select(country = Year, median_age = '2015') %>%
+  mutate(country = str_replace(age$country, 'United States of America', 'United States')) %>%
+  mutate(country = str_replace(age$country, 'Russian Federation', 'Russia')) 
+happiness <- read_csv('data/promptcloud-world-happiness-report-2019/data/world_happiness_report_2019.csv')
 
+# clean spot -> spot_clean
 # select relevant columns
 spot_clean <- select(spot, -added_at, -is_local, -primary_color, -contains('added'), -contains('uri'),
                            -contains('href'), -contains('url'), -track.artists, -track.available_markets, 
@@ -40,9 +46,17 @@ spot_clean <- select(spot_clean, -name)
 # finding and deleting missing values
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
 
+# add median age by country to spot_clean
+spot_clean <- inner_join(spot_clean, age, by = 'country')
+
+# quality check
+bad_countries <- filter(spot_clean, !country %in% age$country)
+unique(bad_countries$country)
+
 # make countries 'rankable' (e.g. in a plot) by converting to factor
 spot_clean$country <- factor(spot_clean$country, 
                              levels = unique(spot_clean$country))
+
 
 # TEST CASES (not for assignment): did country labels work?
 
@@ -125,7 +139,9 @@ plot_merg <- ggplot(spot_clean, aes(x = merged_valence, y = valence))+
   geom_jitter(alpha = 0.2)
 plot_bin <- ggplot(spot_clean, aes(x = binned_valence, y = valence))+
   geom_jitter(alpha = 0.2)
-ggarrange(plot_merg, plot_bin)                                        
+ggarrange(plot_merg, plot_bin) 
+
+
 
 #' 3. Conclusion A: Without a solid class label to discretize over,
 #' an arbitrary-but-even binning method like histogram might be better.
@@ -213,3 +229,21 @@ hier2
 #' fails to make logical sense in this case because 
 #' not all categorical variables are connected in the first place 
 #' and some are equal in observations.
+
+
+# NOT REQUIRED ----
+# decision tree - classify binned_valence 
+val_tree <- rpart(formula = binned_valence ~ track.popularity + 
+                    danceability +
+                    energy +
+                    loudness +
+                    speechiness +
+                    acousticness +
+                    instrumentalness +
+                    liveness +
+                    tempo, 
+                  data = spot_clean,
+                  method = 'class')
+
+plot(val_tree, uniform=TRUE)
+text(val_tree, use.n=TRUE, all=TRUE, cex=.8)
