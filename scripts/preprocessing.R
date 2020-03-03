@@ -43,7 +43,7 @@ spot_clean <- select(spot_clean, -name)
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
 
 
-# TEST CASES (not for assignment): did country labels work?
+  # TEST CASES (not for assignment): did country labels work?
 
 # rank countries by mean track popularity 
 pop <- spot_clean %>% group_by(country) %>% 
