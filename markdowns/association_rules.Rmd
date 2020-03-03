@@ -1,0 +1,33 @@
+---
+title: "association_rules"
+author: "Noah Sebastian"
+date: "March 3, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# packages
+library(tidyverse)
+
+
+# data
+spot <- read_csv("spot_clean.csv")
+
+```
+
+# Question 1
+## Part a)
+this is answer to part a
+
+```{r}
+plot(spot$valence ~ spot$happiness)
+
+
+```
+
+
+Fig1. Not what we want
