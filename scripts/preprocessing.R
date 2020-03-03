@@ -19,11 +19,7 @@ library(ggpubr)
 # Data Cleaning ----
 # data
 spot <- readRDS('data/top_tracks.rds')
-age <- read_csv('data/ages_kaggle.csv') %>% 
-  select(country = Year, median_age = '2015') %>%
-  mutate(country = str_replace(age$country, 'United States of America', 'United States')) %>%
-  mutate(country = str_replace(age$country, 'Russian Federation', 'Russia')) 
-happiness <- read_csv('data/promptcloud-world-happiness-report-2019/data/world_happiness_report_2019.csv')
+
 
 # clean spot -> spot_clean
 # select relevant columns
@@ -45,17 +41,6 @@ spot_clean <- mutate(spot_clean, country = str_replace(spot_clean$country,
 spot_clean <- select(spot_clean, -name)
 # finding and deleting missing values
 spot_clean <- filter(spot_clean, complete.cases(spot_clean))
-
-# add median age by country to spot_clean
-spot_clean <- inner_join(spot_clean, age, by = 'country')
-
-# quality check
-bad_countries <- filter(spot_clean, !country %in% age$country)
-unique(bad_countries$country)
-
-# make countries 'rankable' (e.g. in a plot) by converting to factor
-spot_clean$country <- factor(spot_clean$country, 
-                             levels = unique(spot_clean$country))
 
 
 # TEST CASES (not for assignment): did country labels work?
