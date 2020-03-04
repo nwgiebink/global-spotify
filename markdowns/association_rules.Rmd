@@ -1,5 +1,5 @@
 ---
-title: "Association Rules"
+title: "INFO 523 - Association Rules"
 author: "Noah Giebink and Sebastian Deimen"
 date: "March 3, 2020"
 output: pdf_document
@@ -94,7 +94,37 @@ Notably, none of the top 50 tracks are above the relative frequency threshold mi
 ars <- apriori(spot, parameter = list(support = 0.025, confidence = 0.75))
 
 # looking for maximal itemsets
-inspect(head(subset(ars, subset=is.maximal(ars), 5, by="confidence")))
+
+inspect(head(subset(ars, subset=is.maximal(ars), by="confidence")))
+
+
+# finding closed itemsets
+
+closed_sets <- apriori(spot, parameter = list(support=0.05, target="closed frequent itemsets"))
+summary(closed_sets)
+inspect(head(closed_sets, n = 5, by = "support"))
+sorted_closed <- sort(closed_sets, decreasing = TRUE, by = "support")
+inspect(sorted_closed[1:10])
+
+# mining rules
+
+rules <- apriori(spot, parameter = list(support=0.05, confidence=0.7, target="rules"))
+
+summary(rules)
+
+#obtain maximal rules
+rules.max <- subset(rules, subset=is.maximal(rules))
+
+summary(rules.max)
+
+#Step 3: inspect the rules. Careful with rule interpretation
+sorted_rules <- inspect(head(rules.max, n=10, decreasing = TRUE, by = "support"))
+
+#select rules containing certain items: Show top 5 rules by confidence with "race=B" on the right side (rhs)
+
+inspect(head(subset(rules.max, subset=(rhs %in% "race=B"))))
+
+inspect(head(subset(rules.max, subset=(rhs %in% "race=B" | rhs %in% "race=H"),  by="lift")))
 ```
 
 
