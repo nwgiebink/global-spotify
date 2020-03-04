@@ -63,11 +63,13 @@ ggplot(dbl_long, aes(level))+
 
 Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the top 50 tracks, we chose to omit these variables from association rule mining.
 
+Also, cardinality for track.name and country is too large.
+
 Our remaining variables are the following:
 
 ```{r}
 # The remaining dataset
-spot <- select(spot, -instrumentalness, -liveness, -speechiness)
+spot <- select(spot, -instrumentalness, -liveness, -speechiness, -track.name, -country)
 variable.names(spot)
 ```
 
@@ -92,6 +94,12 @@ Notably, none of the top 50 tracks are above the relative frequency threshold mi
 ## Mine and Inspect Frequent Itemsets
 ```{r}
 ars <- apriori(spot, parameter = list(support = 0.025, confidence = 0.75))
+
+# frequent sets
+sets <- apriori(spot, parameter = list(support = 0.05, target = 'frequent itemsets'))
+closed = sets[is.closed(sets)]
+summary(closed)
+inspect(head(closed, n=5, by='support'))
 
 # looking for maximal itemsets
 
@@ -128,6 +136,19 @@ inspect(head(subset(rules.max, subset=(rhs %in% "race=B" | rhs %in% "race=H"),  
 ```
 
 
+## Mining for Rules
+```{r}
 
+rules <- apriori(spot, parameter = list(support = 0.05, 
+                                        confidence = 0.3,
+                                        target = 'rules',
+                                        minlen = 2)) 
+summary(rules)
+# inspect returns table with columns lhs 'lefthand side', rhs 'rhs'
+# can subset by certain attributes in lhs or rhs
+inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
+
+
+```
 
 
