@@ -57,7 +57,8 @@ dbl_long <- pivot_longer(dbl_df, cols = colnames(dbl_df),
                           names_to = 'variable', values_to = 'level')
 ggplot(dbl_long, aes(level))+
   geom_bar()+
-  facet_wrap(~variable)
+  facet_wrap(~variable)+
+  theme(axis.text.x = element_text(angle = 90))
 ```
 
 Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the top 50 tracks, we chose to omit these variables from association rule mining.
@@ -90,8 +91,10 @@ Notably, none of the top 50 tracks are above the relative frequency threshold mi
 
 ## Mine and Inspect Frequent Itemsets
 ```{r}
+ars <- apriori(spot, parameter = list(support = 0.025, confidence = 0.75))
 
-
+# looking for maximal itemsets
+inspect(head(subset(ars, subset=is.maximal(ars), 5, by="confidence")))
 ```
 
 
