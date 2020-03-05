@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # packages
 library(tidyverse)
+library(corrplot)
 library(arules)
 library(arulesViz)
 
@@ -18,59 +19,72 @@ spot <- read_csv("spot_clean.csv")
 
 ```
 
-## Discretize variables
-*track information variables:*
-track.name, track.popularity, 
-*audio metrics:*
-danceability, energy, key, loudness, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration_min, 
-*sociopolitical variables:*
-country, happiness, median_age, percent_urban, percent_internet_users, density_sqkm, freedom, gdp
+## Choosing Variables
 
-```{r, warning=FALSE}
-# select subset of variables relevant to question
-spot <- spot %>% select(track.name, track.popularity,
+
+```{r}
+# select relevant
+spot <- spot %>% select(track.popularity,
                         danceability, energy, key, loudness, 
                         speechiness, acousticness, instrumentalness,
                         liveness, valence, tempo, duration_min,
-                        country, happiness, median_age, percent_urban,
+                        happiness, median_age, percent_urban,
                         percent_internet_users, density_sqkm,
                         freedom, gdp)
 
-# Discretize variables
-  # which need it? everything except name, country
-chr_df <- select(spot, track.name, country)
-chr_df$track.name <-factor(chr_df$track.name)
-chr_df$country <- factor(chr_df$country)
-dbl_df <- select(spot, -track.name, -country)
+spot_cor <- cor(spot) # make correlation matrix
+corrplot(spot_cor, method = 'number', number.digits = 2,
+         number.cex = 3/5) # find correlations by visualizing corrplot
 
+```
+Figure 1. Correlation plot to weed out highly correlated variables.
+
+
+We set an arbitrary correlation coefficient threshold of +/-0.75 to weed out correlated variables. We removed energy, median_age, and percent_urban.
+
+## Discretize variables
+*track information variables:*
+track.name, track.popularity 
+*audio metrics:*
+danceability, loudness, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration_min, 
+*sociopolitical variables:*
+happiness, percent_internet_users, density_sqkm, freedom, gdp
+
+```{r, warning=FALSE}
+# select remaining variables
+spot <- spot %>% select(track.popularity,
+                        danceability, loudness, 
+                        speechiness, acousticness, instrumentalness,
+                        liveness, valence, tempo, duration_min,
+                        happiness,
+                        percent_internet_users, density_sqkm,
+                        freedom, gdp)
+# Discretize variables
   # function to discretize variables
 disc <- function(x){
   cut(x, breaks = 4, 
       labels = c('low', 'med-low', 'med-high', 'high'))}
   # apply disc fun to all dbl vars
-dbl_df <- mutate_all(dbl_df, funs(disc))
-  # bind data frame back together by cols
-spot <- cbind(chr_df, dbl_df)
+spot_disc <- mutate_all(spot, funs(disc))
 
 # plot distribution of levels for each variable
-dbl_long <- pivot_longer(dbl_df, cols = colnames(dbl_df),
+spot_long <- pivot_longer(spot_disc, cols = colnames(spot_disc),
                           names_to = 'variable', values_to = 'level')
-ggplot(dbl_long, aes(level))+
+ggplot(spot_long, aes(level))+
   geom_bar()+
   facet_wrap(~variable)+
   theme(axis.text.x = element_text(angle = 90))
 ```
+Figure 2. Distribution of discretized levels across all variables.
 
 Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the top 50 tracks, we chose to omit these variables from association rule mining.
-
-Also, cardinality for track.name and country is too large.
 
 Our remaining variables are the following:
 
 ```{r}
 # The remaining dataset
-spot <- select(spot, -instrumentalness, -liveness, -speechiness, -track.name, -country)
-variable.names(spot)
+spot_disc <- select(spot_disc, -instrumentalness, -liveness, -speechiness)
+variable.names(spot_disc)
 ```
 
 
@@ -80,73 +94,58 @@ variable.names(spot)
 ### Inspect 
 ```{r}
 # make transactional dataset
-spot <- as(spot, 'transactions')
-inspect(spot[1])
+spot_trans <- as(spot_disc, 'transactions')
+inspect(spot_trans[1])
 ```
 
 ### Plot
 ```{r}
-itemFrequencyPlot(spot, support = 0.2, cex.names = 0.8)
+itemFrequencyPlot(spot_trans, support = 0.2, cex.names = 0.8)
 
 ```
-Notably, none of the top 50 tracks are above the relative frequency threshold minimum, despite some tracks being nearly ubiquitously popular.
+Figure 3. Most frequent itemsets (support above 0.2).
 
 ## Mine and Inspect Frequent Itemsets
 ```{r}
-ars <- apriori(spot, parameter = list(support = 0.025, confidence = 0.75))
-
 # frequent sets
-sets <- apriori(spot, parameter = list(support = 0.05, target = 'frequent itemsets'))
+sets <- apriori(spot_trans, parameter = list(support = 0.05, target = 'frequent itemsets'))
+  # just closed
 closed = sets[is.closed(sets)]
 summary(closed)
-inspect(head(closed, n=5, by='support'))
+  # just max
+max = sets[is.maximal(sets)]
+summary(max)
 
-# looking for maximal itemsets
-
-inspect(head(subset(ars, subset=is.maximal(ars), by="confidence")))
-
-
-# finding closed itemsets
-
-closed_sets <- apriori(spot, parameter = list(support=0.05, target="closed frequent itemsets"))
-summary(closed_sets)
-inspect(head(closed_sets, n = 5, by = "support"))
-sorted_closed <- sort(closed_sets, decreasing = TRUE, by = "support")
-inspect(sorted_closed[1:10])
-
-# mining rules
-
-rules <- apriori(spot, parameter = list(support=0.05, confidence=0.7, target="rules"))
-
-summary(rules)
-
-#obtain maximal rules
-rules.max <- subset(rules, subset=is.maximal(rules))
-
-summary(rules.max)
-
-#Step 3: inspect the rules. Careful with rule interpretation
-sorted_rules <- inspect(head(rules.max, n=10, decreasing = TRUE, by = "support"))
-
-#select rules containing certain items: Show top 5 rules by confidence with "race=B" on the right side (rhs)
-
-inspect(head(subset(rules.max, subset=(rhs %in% "race=B"))))
-
-inspect(head(subset(rules.max, subset=(rhs %in% "race=B" | rhs %in% "race=H"),  by="lift")))
+# inspect top 10 frequent itemsets
+inspect(head(closed, n=10, by='support'))
 ```
 
 
 ## Mining for Rules
 ```{r}
-
-rules <- apriori(spot, parameter = list(support = 0.05, 
-                                        confidence = 0.3,
-                                        target = 'rules',
-                                        minlen = 2)) 
+rules <- apriori(spot_trans, parameter = list(support = 0.05, 
+                                        confidence = 0.7,
+                                        target = 'rules')) 
 summary(rules)
 # inspect returns table with columns lhs 'lefthand side', rhs 'rhs'
 # can subset by certain attributes in lhs or rhs
 inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
+
+
+# get frequent colnames
+music <- colnames(spot_trans[,1:28])
+social <- colnames(spot_trans[,29:ncol(spot_trans)])
+
+#select rules containing certain items
+inspect(head(n = 20, subset(rules, subset=(rhs %in% music))))
+
+inspect(head(n = 20, subset(rules, subset=(lhs %in% social & rhs %in% music))))
+
+inspect(head(n = 20, by = 'lift', 
+             subset(rules, subset=(lhs %in% social &
+                                     !(lhs %in% music) & 
+                                     rhs %in% music &
+                                     size(lhs)>1))))
 
 
 ```
