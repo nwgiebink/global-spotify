@@ -137,9 +137,15 @@ music <- colnames(spot_trans[,1:28])
 social <- colnames(spot_trans[,29:ncol(spot_trans)])
 
 #select rules containing certain items
-inspect(head(subset(rules, subset=(rhs %in% music))))
+inspect(head(n = 20, subset(rules, subset=(rhs %in% music))))
 
-inspect(head(subset(rules, subset=(lhs %in% social & rhs %in% music))))
+inspect(head(n = 20, subset(rules, subset=(lhs %in% social & rhs %in% music))))
+
+inspect(head(n = 20, by = 'lift', 
+             subset(rules, subset=(lhs %in% social &
+                                     !(lhs %in% music) & 
+                                     rhs %in% music &
+                                     size(lhs)>1))))
 
 
 ```
