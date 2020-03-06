@@ -123,10 +123,20 @@ inspect(head(closed, n=10, by='support'))
 
 ## Mining for Rules
 ```{r}
+
+# conservative rules set (high min confidence)
 rules <- apriori(spot_trans, parameter = list(support = 0.05, 
                                         confidence = 0.7,
                                         target = 'rules')) 
-summary(rules)
+summary(rules) # returns ~4500 rules
+
+# make less conservative rules set for exploring specific variables 
+rules2 <- apriori(spot_trans, parameter = list(support = 0.025, 
+                                        confidence = 0.6,
+                                        target = 'rules')) 
+summary(rules2) # returns 34538 rules
+
+
 # inspect returns table with columns lhs 'lefthand side', rhs 'rhs'
 # can subset by certain attributes in lhs or rhs
 inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
@@ -148,6 +158,38 @@ inspect(head(n = 20, by = 'lift',
                                      size(lhs)>1))))
 
 
+# save subset
+rules_sub <- subset(rules, subset = lhs %in% social & !(lhs %in% music) & rhs %in% music)
+
+# take from less conservative rules set
+rules_val <- subset(rules2, subset = lhs %in% social & rhs %pin% 'valence=')
+
 ```
+
+Valence rules (rules_val) results in zero rules with thresholds for support = 0.05 and confidence = 0.7.
+
+## Plot 
+
+```{r}
+# grouped plot
+plot(rules_sub, method = 'grouped')
+plot(rules_val, method = 'grouped')
+
+# nodes and lines plot
+plot(rules_sub, method="graph", engine="htmlwidget", max=30)
+plot(rules_val, method = 'graph', engine='htmlwidget', max = 30)
+
+```
+
+
+## Finding Interesting Rules
+
+```{r}
+
+
+
+```
+
+
 
 
