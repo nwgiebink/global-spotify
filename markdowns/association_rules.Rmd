@@ -13,6 +13,7 @@ library(tidyverse)
 library(corrplot)
 library(arules)
 library(arulesViz)
+library(shinythemes)
 
 # data
 spot <- read_csv("spot_clean.csv")
@@ -59,13 +60,22 @@ spot <- spot %>% select(track.popularity,
                         happiness,
                         percent_internet_users, density_sqkm,
                         freedom, gdp)
+spot2 <- spot %>% select(-track.popularity)
+pop <- spot %>% select(track.popularity)
+
 # Discretize variables
   # function to discretize variables
 disc <- function(x){
   cut(x, breaks = 4, 
       labels = c('low', 'med-low', 'med-high', 'high'))}
+
   # apply disc fun to all dbl vars
-spot_disc <- mutate_all(spot, funs(disc))
+spot2_disc <- mutate_all(spot2, funs(disc))
+track.popularity <- mutate(pop, track.popularity = 
+                             if_else(track.popularity > median(pop$track.popularity), 
+                                                   'high','low'))
+spot_disc <- cbind(spot2_disc, track.popularity)
+spot_disc$track.popularity <- factor(track.popularity$track.popularity)
 
 # plot distribution of levels for each variable
 spot_long <- pivot_longer(spot_disc, cols = colnames(spot_disc),
@@ -75,9 +85,9 @@ ggplot(spot_long, aes(level))+
   facet_wrap(~variable)+
   theme(axis.text.x = element_text(angle = 90))
 ```
-Figure 2. Distribution of discretized levels across all variables.
+Figure 2. Distribution of discretized levels across all variables. 
 
-Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the top 50 tracks, we chose to omit these variables from association rule mining.
+Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the top 50 tracks, we chose to omit these variables from association rule mining. 
 
 Our remaining variables are the following:
 
@@ -131,12 +141,19 @@ rules <- apriori(spot_trans, parameter = list(support = 0.05,
 summary(rules) # returns ~4500 rules
 
 # make less conservative rules set for exploring specific variables 
+# Reason: Valence rules (rules_val) results in zero rules with thresholds:
+# support = 0.05 and confidence = 0.7.
+
 rules2 <- apriori(spot_trans, parameter = list(support = 0.025, 
                                         confidence = 0.6,
                                         target = 'rules')) 
 summary(rules2) # returns 34538 rules
 
+```
 
+
+
+```{r}
 # inspect returns table with columns lhs 'lefthand side', rhs 'rhs'
 # can subset by certain attributes in lhs or rhs
 inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
@@ -146,6 +163,10 @@ inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
 music <- colnames(spot_trans[,1:28])
 social <- colnames(spot_trans[,29:ncol(spot_trans)])
 
+```
+
+
+```{r}
 #select rules containing certain items
 inspect(head(n = 20, subset(rules, subset=(rhs %in% music))))
 
@@ -154,19 +175,36 @@ inspect(head(n = 20, subset(rules, subset=(lhs %in% social & rhs %in% music))))
 inspect(head(n = 20, by = 'lift', 
              subset(rules, subset=(lhs %in% social &
                                      !(lhs %in% music) & 
-                                     rhs %in% music &
-                                     size(lhs)>1))))
-
+                                     rhs %in% music))))
+inspect(head(n = 20, by = 'confidence', 
+             subset(rules, subset=(lhs %in% social &
+                                     !(lhs %in% music) & 
+                                     rhs %in% music))))
 
 # save subset
 rules_sub <- subset(rules, subset = lhs %in% social & !(lhs %in% music) & rhs %in% music)
 
-# take from less conservative rules set
+# explore rules associated with valence only take from less conservative set
 rules_val <- subset(rules2, subset = lhs %in% social & rhs %pin% 'valence=')
 
 ```
 
-Valence rules (rules_val) results in zero rules with thresholds for support = 0.05 and confidence = 0.7.
+Associations are overwhelmed by rules with track.popularity=high on the rhs. Are each of the lhs sets meaningfully associated with high track.popularity, or is this just a byproduct from sampling tracks from Top 50 in each country (in which case we expect most tracks to have **high** popularity except in the case of tracks which are only popular in a few countries but are internationally obscure.
+
+Question 1:
+Are other levels of track.popularity frequent enough to exist in our set of rules? Associations with track.popularity=high would be more interesting if we could tease apart which social variables are **not** associated with high popularity.
+
+```{r}
+rules_pop <- subset(rules2, subset=(lhs %in% social &
+                        !(lhs %in% music) & 
+                        rhs %pin% 'track.popularity='))
+plot(rules_pop, method = 'grouped')
+
+```
+
+
+
+
 
 ## Plot 
 
@@ -182,13 +220,10 @@ plot(rules_val, method = 'graph', engine='htmlwidget', max = 30)
 ```
 
 
-## Finding Interesting Rules
 
-```{r}
-
+## Explanation of interesting rules
 
 
-```
 
 
 
