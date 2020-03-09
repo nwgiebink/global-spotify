@@ -2,7 +2,9 @@
 title: "INFO 523 - Association Rules"
 author: "Noah Giebink and Sebastian Deimen"
 date: "March 3, 2020"
-output: pdf_document
+output: 
+  pdf_document:
+    fig_crop: no
 ---
 
 ```{r setup, include=FALSE}
@@ -38,30 +40,39 @@ corrplot(spot_cor, method = 'number', number.digits = 2,
          number.cex = 3/5) # find correlations by visualizing corrplot
 
 ```
+
 Figure 1. Correlation plot to weed out highly correlated variables.
 
 
-We set an arbitrary correlation coefficient threshold of +/-0.75 to weed out correlated variables. We removed energy, median_age, and percent_urban.
+We set an arbitrary correlation coefficient threshold of +/-0.75 to weed out correlated variables. As a result, we removed energy, median_age, and percent_urban.
 
 ## Discretize variables
-*track information variables:*
+
+### Track information variables
 track.name, track.popularity 
-*audio metrics:*
+
+### Audio metrics
 danceability, loudness, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration_min, 
-*sociopolitical variables:*
+
+### Sociopolitical variables
 happiness, percent_internet_users, density_sqkm, freedom, gdp
 
 ```{r, warning=FALSE}
 # select remaining variables
-spot <- spot %>% select(track.popularity,
+spot2 <- spot %>% select(track.popularity,
                         danceability, loudness, 
                         speechiness, acousticness, instrumentalness,
                         liveness, valence, tempo, duration_min,
                         happiness,
                         percent_internet_users, density_sqkm,
                         freedom, gdp)
-spot2 <- spot %>% select(-track.popularity)
-pop <- spot %>% select(track.popularity)
+
+```
+We discretized track.popularity separately because the vast majority of tracks in each country's Top 50 playlist were popular, as you would predict for Top 50 tracks! However, a small number of tracks with lower popularity do exist. We expect this to happen when songs in a country's Top 50 are popular locally, but obscure globally.
+
+```{r}
+spot3 <- spot2 %>% select(-track.popularity)
+pop <- spot2 %>% select(track.popularity)
 
 # Discretize variables
   # function to discretize variables
@@ -69,15 +80,34 @@ disc <- function(x){
   cut(x, breaks = 4, 
       labels = c('low', 'med-low', 'med-high', 'high'))}
 
-  # apply disc fun to all dbl vars
-spot2_disc <- mutate_all(spot2, funs(disc))
+  # apply disc fun to all dbl vars except track popularity
+spot3_disc <- mutate_all(spot3, funs(disc))
+```
+
+```{r}
+hist(pop$track.popularity)
+```
+
+Figure 2. Distribution of track.popularity values for songs in Top 50 playlists for various countries. Values are left-skewed. 
+
+
+We are interested in discovering what social factors in individual countries are associated with preferences for local hits, which may show a less globalized music taste, as opposed to global hits. To compare these two categories, we separated track.popularity intro two bins: low and high, separated by the median track.popularity. 
+```{r}
 track.popularity <- mutate(pop, track.popularity = 
                              if_else(track.popularity > median(pop$track.popularity), 
                                                    'high','low'))
-spot_disc <- cbind(spot2_disc, track.popularity)
-spot_disc$track.popularity <- factor(track.popularity$track.popularity)
+```
 
-# plot distribution of levels for each variable
+
+Finally, we bound the two discretized data sets together.
+```{r}
+spot_disc <- cbind(spot3_disc, track.popularity)
+spot_disc$track.popularity <- factor(track.popularity$track.popularity) # make factor
+```
+
+
+## Plot distribution of levels for each variable
+```{r}
 spot_long <- pivot_longer(spot_disc, cols = colnames(spot_disc),
                           names_to = 'variable', values_to = 'level')
 ggplot(spot_long, aes(level))+
@@ -85,9 +115,9 @@ ggplot(spot_long, aes(level))+
   facet_wrap(~variable)+
   theme(axis.text.x = element_text(angle = 90))
 ```
-Figure 2. Distribution of discretized levels across all variables. 
+Figure 3. Distribution of discretized levels across all variables. 
 
-Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the top 50 tracks, we chose to omit these variables from association rule mining. 
+Most variables have a decent spread of values after discretization, except for instrumentalness, liveness, and speechiness. Since we think this is due to their irrelevance to the type of tracks found in the Top 50, we chose to omit these variables from association rule mining. 
 
 Our remaining variables are the following:
 
@@ -100,20 +130,18 @@ variable.names(spot_disc)
 
 ## Make transactional database
 
-
-### Inspect 
 ```{r}
 # make transactional dataset
 spot_trans <- as(spot_disc, 'transactions')
 inspect(spot_trans[1])
 ```
 
-### Plot
+### Plot frequent itemsets
 ```{r}
 itemFrequencyPlot(spot_trans, support = 0.2, cex.names = 0.8)
 
 ```
-Figure 3. Most frequent itemsets (support above 0.2).
+Figure 4. Most frequent itemsets (support above 0.2).
 
 ## Mine and Inspect Frequent Itemsets
 ```{r}
@@ -127,104 +155,127 @@ max = sets[is.maximal(sets)]
 summary(max)
 
 # inspect top 10 frequent itemsets
-inspect(head(closed, n=10, by='support'))
+inspect(head(closed, n=20, by='support'))
 ```
 
 
 ## Mining for Rules
+How are social factors associated with global patterns in music taste?
+
 ```{r}
 
 # conservative rules set (high min confidence)
 rules <- apriori(spot_trans, parameter = list(support = 0.05, 
                                         confidence = 0.7,
                                         target = 'rules')) 
-summary(rules) # returns ~4500 rules
-
-# make less conservative rules set for exploring specific variables 
-# Reason: Valence rules (rules_val) results in zero rules with thresholds:
-# support = 0.05 and confidence = 0.7.
-
-rules2 <- apriori(spot_trans, parameter = list(support = 0.025, 
-                                        confidence = 0.6,
-                                        target = 'rules')) 
-summary(rules2) # returns 34538 rules
-
+summary(rules) 
 ```
 
-
-
+A general look at our rules:
 ```{r}
 # inspect returns table with columns lhs 'lefthand side', rhs 'rhs'
-# can subset by certain attributes in lhs or rhs
 inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
-
-
-# get frequent colnames
-music <- colnames(spot_trans[,1:28])
-social <- colnames(spot_trans[,29:ncol(spot_trans)])
 
 ```
 
 
+To examine how social factors are associated with global music tastes, we distinguished social variables from those dealing with the sonic qualities of music. 
 ```{r}
-#select rules containing certain items
-inspect(head(n = 20, subset(rules, subset=(rhs %in% music))))
+# get frequent colnames
+music <- colnames(spot_trans[,1:24])
+social <- colnames(spot_trans[,25:ncol(spot_trans)])
 
+```
+
+Here is an example where we associated social factors with music qualities. 
+```{r}
 inspect(head(n = 20, subset(rules, subset=(lhs %in% social & rhs %in% music))))
+```
 
+
+To tease apart *only* the affect of social factors, we needed to specify the lhs to not include music variables. Here, we sort by lift to get a sense of whether any of the rules contain associations that co-occur more often than is likely by chance. 
+```{r}
 inspect(head(n = 20, by = 'lift', 
              subset(rules, subset=(lhs %in% social &
                                      !(lhs %in% music) & 
                                      rhs %in% music))))
+```
+
+Finally, our goal could be phrased in terms of a conditional probability: what kind of musical qualities do we see listeners engaging with, conditioned on social factors in their country? Therefore, we are most interested in rules with high confidence.
+```{r}
 inspect(head(n = 20, by = 'confidence', 
              subset(rules, subset=(lhs %in% social &
                                      !(lhs %in% music) & 
                                      rhs %in% music))))
+```
 
+
+```{r}
 # save subset
 rules_sub <- subset(rules, subset = lhs %in% social & !(lhs %in% music) & rhs %in% music)
 
-# explore rules associated with valence only take from less conservative set
-rules_val <- subset(rules2, subset = lhs %in% social & rhs %pin% 'valence=')
+# explore rules associated with valence only; take from less conservative set
+rules_val <- subset(rules, subset = lhs %in% social & !(lhs %in% music) & rhs %pin% 'valence=')
+
+# explore rules associated with track.popularity only
+rules_pop <- subset(rules, subset = lhs %in% social & !(lhs %in% music) & rhs %pin% 'track.pop')
+
+# what music taste is happiness associated with?
+rules_happy <- subset(rules, subset = (lhs %pin% 'hap' & size(lhs)<2) & rhs %in% music & !(rhs %in% social))
 
 ```
-
-Associations are overwhelmed by rules with track.popularity=high on the rhs. Are each of the lhs sets meaningfully associated with high track.popularity, or is this just a byproduct from sampling tracks from Top 50 in each country (in which case we expect most tracks to have **high** popularity except in the case of tracks which are only popular in a few countries but are internationally obscure.
-
-Question 1:
-Are other levels of track.popularity frequent enough to exist in our set of rules? Associations with track.popularity=high would be more interesting if we could tease apart which social variables are **not** associated with high popularity.
-
-```{r}
-rules_pop <- subset(rules2, subset=(lhs %in% social &
-                        !(lhs %in% music) & 
-                        rhs %pin% 'track.popularity='))
-plot(rules_pop, method = 'grouped')
-
-```
-
-
-
-
 
 ## Plot 
 
 ```{r}
 # grouped plot
 plot(rules_sub, method = 'grouped')
-plot(rules_val, method = 'grouped')
-
-# nodes and lines plot
-plot(rules_sub, method="graph", engine="htmlwidget", max=30)
-plot(rules_val, method = 'graph', engine='htmlwidget', max = 30)
-
 ```
 
 
+Figure 5. A sample of all rules generated.
+
+```{r}
+plot(rules_pop, method = 'grouped')
+```
+
+
+Figure 6. Rules specific to track.popularity.
+
+```{r, error=TRUE}
+plot(rules_val, method = 'grouped')
+```
+We know there are no interesting associations with valence because the query produces **no rules** (and throws an informative error)!
+Similarly, we lack rules for citizens' self-reported happiness.
+```{r, error=TRUE}
+plot(rules_happy, method = 'grouped')
+```
+
+```{r}
+rules_pop10 <- head(rules_pop, n = 10, by = 'confidence')
+plot(rules_pop10, method = 'graph', engine='htmlwidget')
+```
+Figure 7. An interactive plot of the association rules for track.popularity. 
+
 
 ## Explanation of interesting rules
+### The top 10 rules dealing with track.popularity:
+As outlined above, we chose these by systematically filtering a subset of rules and choosing those with highest confidence. We are especially interested in the top 2 rules, but consider aspects of the entire top 10 rules in our interpretation.
+```{r}
+inspect(head(rules_pop, by = 'confidence',n=10))
+```
 
 
+### Tentative finding
+Happy countries appear to enjoy the most globally popular music. Less happy countries enjoy more globally obscure music. 
 
+Among the top 10 rules, happiness=high was always associated with track.popularity=high. By contrast, several rules for track.popularity=low contained happiness=med-high, and in one case happiness=med-low. 
 
+Gdp=med-low and freedom=low were common in rules containing both track.popularity=high and track.popularity=low, making them unfit for teasing apart the two popularity levels on their own. In a future analysis, we could look for possible interactions between happiness and gdp or freedom.
+
+Another interesting item in rules with track.popularity=high but not in track.popularity=low is percent_internet_users=high. This could align with our previously mentioned speculation that globally obscure tracks in a country's Top 50 may be a sign of reduced globalization in music tastes, because the internet is clearly a powerful force in globalization and mixing of ideas. It would be neccessary and interesting to assess the impact of internet access on music tastes in the future.
+
+### Mining rationale
+We chose interesting rules with a mixture of subsetting to consider how social factors are associated with a country's listening preferences, omitting subsets which fail to produce rules (e.g. the case of valence, above), and selecting interesting rules by confidence, given that they also yield lift > 1. To compare associations across track.popularity=high and track.popularity=low, we chose rules with the highest confidence for each of these two levels on the rhs. We chose the rules with greatest confidence because we wanted to know what track.popularity would be, *conditioned* on social factors (i.e. to answer our question: how are social factors in individual countries associated with preferences for tracks with high or low global popularity?).
 
 
