@@ -1,7 +1,7 @@
 ---
 title: "INFO 523 - Association Rules"
 author: "Noah Giebink and Sebastian Deimen"
-date: "March 3, 2020"
+date: "March 9, 2020"
 output: 
   pdf_document:
     fig_crop: no
@@ -70,7 +70,7 @@ spot2 <- spot %>% select(track.popularity,
 ```
 We discretized track.popularity separately because the vast majority of tracks in each country's Top 50 playlist were popular, as you would predict for Top 50 tracks! However, a small number of tracks with lower popularity do exist. We expect this to happen when songs in a country's Top 50 are popular locally, but obscure globally.
 
-```{r}
+```{r, warning=FALSE}
 spot3 <- spot2 %>% select(-track.popularity)
 pop <- spot2 %>% select(track.popularity)
 
@@ -155,7 +155,7 @@ max = sets[is.maximal(sets)]
 summary(max)
 
 # inspect top 10 frequent itemsets
-inspect(head(closed, n=20, by='support'))
+inspect(head(closed, n=10, by='support'))
 ```
 
 
@@ -174,7 +174,7 @@ summary(rules)
 A general look at our rules:
 ```{r}
 # inspect returns table with columns lhs 'lefthand side', rhs 'rhs'
-inspect(head(rules, n=10, decreasing = TRUE, by = "lift"))
+inspect(head(rules, n=5, decreasing = TRUE, by = "lift"))
 
 ```
 
@@ -189,13 +189,13 @@ social <- colnames(spot_trans[,25:ncol(spot_trans)])
 
 Here is an example where we associated social factors with music qualities. 
 ```{r}
-inspect(head(n = 20, subset(rules, subset=(lhs %in% social & rhs %in% music))))
+inspect(head(n = 5, subset(rules, subset=(lhs %in% social & rhs %in% music))))
 ```
 
 
 To tease apart *only* the affect of social factors, we needed to specify the lhs to not include music variables. Here, we sort by lift to get a sense of whether any of the rules contain associations that co-occur more often than is likely by chance. 
 ```{r}
-inspect(head(n = 20, by = 'lift', 
+inspect(head(n = 5, by = 'lift', 
              subset(rules, subset=(lhs %in% social &
                                      !(lhs %in% music) & 
                                      rhs %in% music))))
@@ -203,13 +203,13 @@ inspect(head(n = 20, by = 'lift',
 
 Finally, our goal could be phrased in terms of a conditional probability: what kind of musical qualities do we see listeners engaging with, conditioned on social factors in their country? Therefore, we are most interested in rules with high confidence.
 ```{r}
-inspect(head(n = 20, by = 'confidence', 
+inspect(head(n = 5, by = 'confidence', 
              subset(rules, subset=(lhs %in% social &
                                      !(lhs %in% music) & 
                                      rhs %in% music))))
 ```
 
-
+We explored various rule subsets and plotted them below.
 ```{r}
 # save subset
 rules_sub <- subset(rules, subset = lhs %in% social & !(lhs %in% music) & rhs %in% music)
