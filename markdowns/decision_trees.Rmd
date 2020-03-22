@@ -6,12 +6,15 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+
 knitr::opts_chunk$set(echo = FALSE)
+
 
 # packages
 
 # install.packages("xfun")
 #library(xfun)
+
 libs <- c("rpart","rpart.plot","tidyverse", "adabag",  "rsample","ipred","randomForest","gbm","DMwR2")
 xfun::pkg_attach(libs)
 
@@ -24,6 +27,7 @@ set.seed(28)
 
 ```{r}
 # preprocessing the data set 
+
 
 spot_music <- spot %>% select(track.popularity, track.explicit, danceability, key, loudness, mode, 
                         speechiness, acousticness, instrumentalness,
@@ -38,42 +42,46 @@ spot_music_socio <- spot %>% select(track.popularity, track.explicit, danceabili
                         percent_internet_users, density_sqkm, freedom, gdp, country)
 ```
 
-
-
 The spot_music splitting: 
 
 ```{r}
+
 # splitting the data, two differnet ways: one with CreateDataPartition, second with sample
 
 # first: 
+
 
 split_index <- createDataPartition(spot_music$country, p= 0.8, list = F)
 
 spot_music_train <- spot_music[split_index,]
 spot_music_features_test <- spot_music[-split_index, !(colnames(spot_music) %in% c("country"))]
 spot_music_target_test <- spot_music[-split_index, "country"]
-  
-  
+ 
 # second:   
   
+
 index <- sample(1:nrow(spot_music),929)
 train <- spot_music[index,]
 test <- spot_music[-index,]
 
-
 ```
+
 
 The spot_music trees and error rates:
 
+
 ```{r}
 # making two trees from different trainings sets
+
 
 ct_create <- rpartXse(country ~ ., spot_music_train, se=0.5)
 ct_sample <- rpartXse(country ~ ., train, se=0.5)
 
 # prediction using the trees
 
+
 ps_create <- predict(ct_create, spot_music_features_test, type = "class")
+
 ps_sampel <- predict(ct_sample, test, type = "class")
 
 # have a look at the variable.importance
@@ -81,6 +89,7 @@ ct_create$variable.importance
 ct_sample$variable.importance
 
 # contingency tables
+
 cm_create <- table(ps_create, spot_music_target_test)
 cm_sample <- table(ps_sampel,test$country)
 
@@ -89,11 +98,9 @@ error_create <- (1-sum(diag(cm_create))/sum(cm_create))
 cat("error_create rate:",error_create)
                     
 error_sample <- (1-sum(diag(cm_sample))/sum(cm_sample))
+
 cat("error_sample rate:",error_sample)
 ```
-
-
-
 
 
 The spot_music_SOCIO splitting: 
