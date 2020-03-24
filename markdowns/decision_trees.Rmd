@@ -16,9 +16,10 @@ knitr::opts_chunk$set(echo = FALSE)
 
 # packages
 
-# install.packages("xfun")
-#library(xfun)
+#install.packages('xfun')
+library(xfun)
 libs <- c("rpart","rpart.plot","tidyverse", "adabag",  "rsample","ipred","randomForest","gbm","DMwR2")
+install.packages(libs)
 xfun::pkg_attach(libs)
 
 spot <- read.csv("spot_clean.csv")
@@ -31,75 +32,18 @@ set.seed(28)
 ```{r}
 # preprocessing the data set 
 
-spot_music <- spot %>% select(track.popularity, track.explicit, danceability, key, loudness, mode, 
+spot_music <- spot %>% select(track.popularity, track.explicit, danceability, key, loudness, mode,
                         speechiness, acousticness, instrumentalness,
                         liveness, valence, tempo, country)
 
 # trying another set of varibales due to horrible error rates for the first set
-# I tried without track.popuarity, makes it worse, so another try, including socio-variables
+# I tried without track.popularity, makes it worse, so another try, including socio-variables
 
 spot_music_socio <- spot %>% select(track.popularity, track.explicit, danceability, key, loudness, mode, 
                         speechiness, acousticness, instrumentalness,
                         liveness, valence, tempo, happiness, median_age, percent_urban, 
                         percent_internet_users, density_sqkm, freedom, gdp, country)
 ```
-
-
-
-The spot_music splitting: 
-
-```{r}
-# splitting the data, two differnet ways: one with CreateDataPartition, second with sample
-
-# first: 
-
-split_index_music <- createDataPartition(spot_music$country, p= 0.8, list = F)
-
-spot_music_train <- spot_music[split_index_music,]
-spot_music_features_test <- spot_music[-split_index_music, !(colnames(spot_music) %in% c("country"))]
-spot_music_target_test <- spot_music[-split_index_music, "country"]
-  
-  
-# second:   
-  
-index_music <- sample(1:nrow(spot_music),929)
-train_music <- spot_music[index_music,]
-test_music <- spot_music[-index_music,]
-
-
-```
-
-The spot_music trees and error rates:
-
-```{r}
-# making two trees from different trainings sets
-
-ct_create_music <- rpartXse(country ~ ., spot_music_train, se=0.5)
-ct_sample_music <- rpartXse(country ~ ., train_music, se=0.5)
-
-# prediction using the trees
-
-ps_create_music <- predict(ct_create_music, spot_music_features_test, type = "class")
-ps_sample_music <- predict(ct_sample_music, test_music, type = "class")
-
-# have a look at the variable.importance
-ct_create_music$variable.importance
-ct_sample_music$variable.importance
-
-# contingency tables
-cm_create_music <- table(ps_create_music, spot_music_target_test)
-cm_sample_music <- table(ps_sample_music,test_music$country)
-
-# error rate
-error_create_music <- (1-sum(diag(cm_create_music))/sum(cm_create_music))
-cat("error_create rate:",error_create_music)
-                    
-error_sample_music <- (1-sum(diag(cm_sample_music))/sum(cm_sample_music))
-cat("error_sample rate:",error_sample_music)
-```
-
-
-
 
 
 The spot_music_SOCIO splitting: 
@@ -158,9 +102,82 @@ cat("error_sample rate:",error_sample)
 ```
 
 
+Cluster countries by most important social feature (happiness) for classification
+```{r}
+set.seed(42)
+hap <- spot_music_socio %>% group_by(country) %>% 
+  summarise(happiness = mean(happiness))
+hist(hap$happiness) # 2 modes, one (apparent) outlier
+
+# cluster countries by happiness, 3 clusters
+h <- kmeans(hap$happiness, 2)
+h$cluster
+
+spot_clust <- cbind(hap, h$cluster)
+spot_clust <- rename(spot_clust, cluster = 'h$cluster')
+arrange(spot_clust, cluster)
+
+hi <- filter(spot_clust, cluster == 2) %>%
+  select(country)
+low <- filter(spot_clust, cluster == 1) %>%
+  select(country)
+#med <- filter(spot_clust, cluster == 3) %>%
+  #select(country)
+
+spot_music <- spot_music %>% mutate(cluster = 
+                                      ifelse(country %in% hi$country,
+                                             'high', 'low'))
+
+#spot_music <- spot_music %>% mutate(cluster = ifelse(country %in% hi$country, 'high', 
+#                                       ifelse(spot_music$country %in% med$country, 
+#                                              'medium', 'low')))
+
+#spot_music <- spot_music %>% 
+#  group_by(country, cluster) %>% 
+#  summarise_if(is.numeric, mean) %>%
+#  ungroup(spot_music)
+```
 
 
+The spot_music splitting: 
+
+```{r}
+# get rid of country
+spot_music2 <- select(spot_music, -country)
+
+# splitting the data
+index_music <- sample(1:nrow(spot_music2),0.8*nrow(spot_music2))
+train_music <- spot_music2[index_music,]
+test_music <- spot_music2[-index_music,]
 
 
+```
+
+The spot_music trees and error rates:
+
+```{r}
+# making two trees 
+ct_sample_music <- rpartXse(cluster ~ ., train_music, se=0.5)
+
+# prediction using the trees
+
+ps_sample_music <- predict(ct_sample_music, test_music, type = "class")
+
+# have a look at the variable.importance
+ct_sample_music$variable.importance
+
+# contingency tables
+cm_sample_music <- table(ps_sample_music,test_music$cluster)
+
+# error rate
+error_sample_music <- (1-sum(diag(cm_sample_music))/sum(cm_sample_music))
+cat("error_sample rate:",error_sample_music)
+```
+
+Plot the tree
+```{r}
+prp(ct_sample_music, type = 1, extra = 103, roundint = FALSE)
+
+```
 
 
