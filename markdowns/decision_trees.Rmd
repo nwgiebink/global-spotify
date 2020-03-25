@@ -5,11 +5,6 @@ date: "21 März 2020"
 output: pdf_document
 ---
 
-NOTE@Noah (delete after reading): all weird... I tried two different splitting methods, which both give similar error rates at the end, so no difference here. I made two spot-sets, one only music related stuff like dancebility, speechenes etc.  and one music_socio, the music gives horrible error rates at the one end of the scala - and the music_socio gives a 0 error rate, which seems too good to be true, so it is probably sth wrong with it. 
-I tried to grow a tree with the complete set without further preprocessing, but interrupted it after 20mins... 
-conclusion: we might have to think more carefully about the variables than I did today...
-
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -19,15 +14,14 @@ knitr::opts_chunk$set(echo = FALSE)
 #install.packages('xfun')
 library(xfun)
 libs <- c("rpart","rpart.plot","tidyverse", "adabag",  "rsample","ipred","randomForest","gbm","DMwR2")
-install.packages(libs)
+#install.packages(libs)
 xfun::pkg_attach(libs)
 
 spot <- read.csv("spot_clean.csv")
 
-set.seed(28)
 ```
 
-
+At first, we are going to make two sets of our spot-data: one only related to the music vaiables and one also including the  socio- variables. 
 
 ```{r}
 # preprocessing the data set 
@@ -46,7 +40,7 @@ spot_music_socio <- spot %>% select(track.popularity, track.explicit, danceabili
 ```
 
 
-The spot_music_SOCIO splitting: 
+We splitted the spot_music_SOCIO data into training and test data, not using a validation set. 
 
 ```{r}
 # splitting the data, two differnet ways: one with CreateDataPartition, second with sample
@@ -69,7 +63,9 @@ test <- spot_music_socio[-index,]
 
 ```
 
-The spot_music_socio_SOCIO trees:
+Our goal was to predict "country". We made a tree with the training data, used it to predict on our testdata and checked the results/error rates. The tree did surprisingly well with an error rate of 0 %. 
+
+We also made a tree and prediction just for the music variables to predict "country", but the tree had a horrible error rate of  around 82 %. So we decided to choose a different approach. 
 
 ```{r}
 # making two trees from different trainings sets
@@ -92,17 +88,21 @@ cm_sample <- table(ps_sample,test$country)
 
 # error rate
 error_create <- (1-sum(diag(cm_create))/sum(cm_create))
-cat("error_create rate:",error_create)
+cat(" error_create rate: ",error_create)
                     
 error_sample <- (1-sum(diag(cm_sample))/sum(cm_sample))
-cat("error_sample rate:",error_sample)
+cat(" error_sample rate: ",error_sample)
 
 
 
 ```
+```{r}
+prp(ct_create, type = 1, extra = 103, roundint = FALSE)
 
+```
+The different approach: 
+We clustered countries by most important social feature (happiness) for classification. We decided to use two k = 2 to get "happy" and "unhappy" countries. We then bound the clusters to our solely music-varibale data and used this to grow the tree. 
 
-Cluster countries by most important social feature (happiness) for classification
 ```{r}
 set.seed(42)
 hap <- spot_music_socio %>% group_by(country) %>% 
@@ -139,16 +139,18 @@ spot_music <- spot_music %>% mutate(cluster =
 ```
 
 
-The spot_music splitting: 
+Splitting, growing, predicting and plotting for the different approach: 
 
 ```{r}
 # get rid of country
 spot_music2 <- select(spot_music, -country)
 
-# splitting the data
+# splitting the data 
 index_music <- sample(1:nrow(spot_music2),0.8*nrow(spot_music2))
 train_music <- spot_music2[index_music,]
 test_music <- spot_music2[-index_music,]
+
+
 
 
 ```
@@ -156,27 +158,28 @@ test_music <- spot_music2[-index_music,]
 The spot_music trees and error rates:
 
 ```{r}
-# making two trees 
-ct_sample_music <- rpartXse(cluster ~ ., train_music, se=0.5)
+# making a tree
+set.seed(42)
+ct_music <- rpartXse(cluster ~ ., train_music, se=0.1)
 
 # prediction using the trees
 
-ps_sample_music <- predict(ct_sample_music, test_music, type = "class")
+pred_music <- predict(ct_music, test_music, type = "class")
 
 # have a look at the variable.importance
-ct_sample_music$variable.importance
+ct_music$variable.importance
 
 # contingency tables
-cm_sample_music <- table(ps_sample_music,test_music$cluster)
+cm_music <- table(pred_music,test_music$cluster)
 
 # error rate
-error_sample_music <- (1-sum(diag(cm_sample_music))/sum(cm_sample_music))
-cat("error_sample rate:",error_sample_music)
+error_music <- (1-sum(diag(cm_music))/sum(cm_music))
+cat("error_sample rate: ",error_music)
 ```
 
 Plot the tree
 ```{r}
-prp(ct_sample_music, type = 1, extra = 103, roundint = FALSE)
+prp(ct_music, type = 1, extra = 103, roundint = FALSE)
 
 ```
 
