@@ -1,5 +1,5 @@
 ---
-title: "INFO523 Decicion Trees"
+title: "INFO523 Decision Trees"
 author: "Sebastian Deimen & Noah Giebink"
 date: "21 März 2020"
 output: pdf_document
@@ -21,6 +21,8 @@ spot <- read.csv("spot_clean.csv")
 
 ```
 
+# Preprocessing
+
 At first, we are going to make two sets of our spot-data: one only related to the music vaiables and one also including the  socio- variables. 
 
 ```{r}
@@ -39,148 +41,264 @@ spot_music_socio <- spot %>% select(track.popularity, track.explicit, danceabili
                         percent_internet_users, density_sqkm, freedom, gdp, country)
 ```
 
+# Overview
 
-We splitted the spot_music_SOCIO data into training and test data, not using a validation set. 
+**Step 1**: build a decision tree to classify countries using social variables. 
+**Step 1B**: Interesting rules for distinguishing countries
+**Step 2**: use most important variable from Stage 1 to cluster countries (the tree in Step 3 performed better with fewer classes this way)
+**Step 3**: build a decision tree to classify clustered countries by music variables (dimensions of music taste)
+**Step 3B**: Interesting rules
+**Step 4**: Compare performance of decision tree in Step 3 to Random Forest
+
+# Step 1. Decision tree
+## Split Train/Test
+
+We split the spot_music_SOCIO data into training and test data, not using a validation set. 
 
 ```{r}
-# splitting the data, two differnet ways: one with CreateDataPartition, second with sample
-
-# first: 
-
 split_index <- createDataPartition(spot_music_socio$country, p= 0.8, list = F)
 
 spot_music_socio_train <- spot_music_socio[split_index,]
 spot_music_socio_features_test <- spot_music_socio[-split_index, !(colnames(spot_music_socio) %in% c("country"))]
 spot_music_socio_target_test <- spot_music_socio[-split_index, "country"]
-  
-  
-# second:   
-  
-index <- sample(1:nrow(spot_music_socio),929)
-train <- spot_music_socio[index,]
-test <- spot_music_socio[-index,]
-
 
 ```
 
-Our goal was to predict "country". We made a tree with the training data, used it to predict on our testdata and checked the results/error rates. The tree did surprisingly well with an error rate of 0 %. 
-
-We also made a tree and prediction just for the music variables to predict "country", but the tree had a horrible error rate of  around 82 %. So we decided to choose a different approach. 
 
 ```{r}
-# making two trees from different trainings sets
+# tree building
 
-ct_create <- rpartXse(country ~ ., spot_music_socio_train, se=0.5)
-ct_sample <- rpartXse(country ~ ., train, se=0.5)
+ct <- rpartXse(country ~ ., spot_music_socio_train, se=0.5)
 
 # prediction using the trees
 
-ps_create <- predict(ct_create, spot_music_socio_features_test, type = "class")
-ps_sample <- predict(ct_sample, test, type = "class")
+pred <- predict(ct, spot_music_socio_features_test, type = "class")
 
 # have a look at the variable.importance
-ct_create$variable.importance
-ct_sample$variable.importance
+ct$variable.importance
 
-# contingency tables
-cm_create <- table(ps_create, spot_music_socio_target_test)
-cm_sample <- table(ps_sample,test$country)
+# confusion matrix 
+cm <- table(pred, spot_music_socio_target_test)
 
 # error rate
-error_create <- (1-sum(diag(cm_create))/sum(cm_create))
-cat(" error_create rate: ",error_create)
+error <- (1-sum(diag(cm))/sum(cm))
+cat(" error rate: ",error)
                     
-error_sample <- (1-sum(diag(cm_sample))/sum(cm_sample))
-cat(" error_sample rate: ",error_sample)
-
-
-
 ```
+
 ```{r}
-prp(ct_create, type = 1, extra = 103, roundint = FALSE)
+prp(ct, type = 1, extra = 103, roundint = FALSE)
 
 ```
-The different approach: 
-We clustered countries by most important social feature (happiness) for classification. We decided to use two k = 2 to get "happy" and "unhappy" countries. We then bound the clusters to our solely music-varibale data and used this to grow the tree. 
+
+Figure 1. First decision tree: classifying countries by social variables. 
+
+
+## Why is the error rate 0?
+
+Seems to good to be true...Let's examine the happiness variable.
+
+```{r}
+ggplot(spot_music_socio, aes(country, happiness))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+Figure 2. Each country has a single happiness value (boxplot lacks quantiles, etc) spread over each tuple for that country (by virtue of the sociopolitical data source's methods). Therefore, if at least one tuple from each country made it into both the training and test data, this could lead to a perfect error rate.
+
+### Solution: Discretize variables and re-run decision tree
+
+```{r}
+disc <- function(x){
+  cut(x, breaks = 4, 
+      labels = c(1:4))}
+
+  # apply disc fun to all dbl vars except track popularity
+soc_disc <- mutate_if(spot_music_socio, is.numeric, funs(disc))
+```
+
+#### Examine distribution of levels
+
+```{r}
+soc2 <- select(soc_disc, -track.explicit, -country)
+soc_long <- pivot_longer(soc2, cols = colnames(soc2),
+                          names_to = 'variable', values_to = 'level')
+ggplot(soc_long, aes(level))+
+  geom_bar()+
+  facet_wrap(~variable)+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+Figure 3. Distribution of discretized levels.
+
+## Socio-political tree with discretized variables
+```{r}
+# splitting the data
+
+split_index <- createDataPartition(soc_disc$country, p= 0.8, list = F)
+
+soc_train <- soc_disc[split_index,]
+soc_test <- soc_disc[-split_index, !(colnames(soc_disc) %in% c("country"))]
+soc_target <- soc_disc[-split_index, "country"]
+
+# build the tree
+
+ct2 <- rpartXse(country ~ ., soc_train, se=0.5)
+
+# prediction using the trees
+
+pred2 <- predict(ct2, soc_test, type = "class")
+
+# have a look at the variable.importance
+ct2$variable.importance
+
+# confusion matrix 
+cm2 <- table(pred, soc_target)
+
+# error rate
+error2 <- (1-sum(diag(cm2))/sum(cm2))
+cat("error rate (categorical features): ",error2)
+                    
+```
+
+```{r}
+prp(ct2, type = 1, extra = 103, roundint = FALSE)
+
+```
+
+Figure 4. Classification of countries using discretized social variables. We chose not to prune the tree because it already has impeccable performance on the test data. The error rate is still 0.
+
+## Step 1B: interesting rules
+
+1. If freedom != 1,2,3 (1 is highest) and percent urban = 2, then country = China
+
+2. If freedom != 1,2,3 (1 is highest) and percent urban != 2, then country = Russia (note: Russia's percent urban is 74.3 (> level 2))
+
+3. If freedom = 1,2,3 (all but lowest), percent internet users != 1,4 (moderate), happiness != 3,4 (below 50th percentile), and percent urban = 4 (highest), then country = Dominican Republic
+
+# Step 2. Use important variable from tree in Step 1 to cluster countries
+
+Our goal is to classify countries by music tastes. To make results more interpretable, we clustered countries by the most important variable in the decision tree shown in Fig. 4, *median_age*, for classification (this also improved performance over a previous tree, not shown). We decided to use two k = 2 to get "old" and "young" countries. We then bound the clusters to our solely music-variable data and used this to grow the tree. 
+
+**In essence, our question is: what are the most important music variables that distinguish 'old' countries' music taste from 'young' countries?**
 
 ```{r}
 set.seed(42)
-hap <- spot_music_socio %>% group_by(country) %>% 
-  summarise(happiness = mean(happiness))
-hist(hap$happiness) # 2 modes, one (apparent) outlier
+age <- spot_music_socio %>% group_by(country) %>% 
+  summarise(age = mean(median_age))
+age_hist <- hist(age$age) 
 
 # cluster countries by happiness, 3 clusters
-h <- kmeans(hap$happiness, 2)
-h$cluster
+a <- kmeans(age$age, 2)
+a$cluster
 
-spot_clust <- cbind(hap, h$cluster)
-spot_clust <- rename(spot_clust, cluster = 'h$cluster')
-arrange(spot_clust, cluster)
+age_clust <- cbind(age, a$cluster)
+age_clust <- rename(age_clust, cluster = 'a$cluster')
+arrange(age_clust, cluster)
 
-hi <- filter(spot_clust, cluster == 2) %>%
+young <- filter(age_clust, cluster == 1) %>%
   select(country)
-low <- filter(spot_clust, cluster == 1) %>%
+old <- filter(age_clust, cluster == 2) %>%
   select(country)
-#med <- filter(spot_clust, cluster == 3) %>%
-  #select(country)
 
-spot_music <- spot_music %>% mutate(cluster = 
-                                      ifelse(country %in% hi$country,
-                                             'high', 'low'))
-
-#spot_music <- spot_music %>% mutate(cluster = ifelse(country %in% hi$country, 'high', 
-#                                       ifelse(spot_music$country %in% med$country, 
-#                                              'medium', 'low')))
-
-#spot_music <- spot_music %>% 
-#  group_by(country, cluster) %>% 
-#  summarise_if(is.numeric, mean) %>%
-#  ungroup(spot_music)
+age_music <- spot_music %>% mutate(cluster = 
+                                      ifelse(country %in% young$country,
+                                             'young', 'old'))
 ```
-
-
-Splitting, growing, predicting and plotting for the different approach: 
 
 ```{r}
 # get rid of country
-spot_music2 <- select(spot_music, -country)
-
+age_music2 <- select(age_music, -country)
 # splitting the data 
-index_music <- sample(1:nrow(spot_music2),0.8*nrow(spot_music2))
-train_music <- spot_music2[index_music,]
-test_music <- spot_music2[-index_music,]
-
-
-
+index_age <- sample(1:nrow(age_music2),0.8*nrow(age_music2))
+train_age <- age_music2[index_age,]
+test_age <- age_music2[-index_age,]
 
 ```
-
-The spot_music trees and error rates:
 
 ```{r}
 # making a tree
 set.seed(42)
-ct_music <- rpartXse(cluster ~ ., train_music, se=0.1)
+ct_age <- rpartXse(cluster ~ ., train_age, se=0.1)
 
 # prediction using the trees
 
-pred_music <- predict(ct_music, test_music, type = "class")
+pred_age <- predict(ct_age, test_age, type = "class")
 
 # have a look at the variable.importance
-ct_music$variable.importance
+ct_age$variable.importance
 
 # contingency tables
-cm_music <- table(pred_music,test_music$cluster)
+cm_age <- table(pred_age,test_age$cluster)
 
 # error rate
-error_music <- (1-sum(diag(cm_music))/sum(cm_music))
-cat("error_sample rate: ",error_music)
+error_age <- (1-sum(diag(cm_age))/sum(cm_age))
+cat("DT on age clusters error rate: ",error_age)
 ```
 
-Plot the tree
+
 ```{r}
-prp(ct_music, type = 1, extra = 103, roundint = FALSE)
+prp(ct_age, type = 1, extra = 103, roundint = FALSE)
 
 ```
 
+Figure 6. Classification of young and old countries. 
+
+## Step 3B: interesting rules
+1. If track popularity >= 70 (scale 0-100) and speechiness >= 0.046 (range 0.02-0.56 in our data), then people in the country are old.
+2. If track popularity <70 then people in the country are young.
+3. IF track popularity >70 and speechiness < 0.046 (extremely low), then people in the country are young.
+
+
+## Step 4. Compare performance with Random Forest
+
+```{r}
+set.seed(42) 
+# make sure all variables are factors
+soc_disc$track.explicit <- as.factor(soc_disc$track.explicit)
+# remove non-musical variables
+mus <- soc_disc %>% select(-happiness, -median_age, -percent_urban,
+                           -percent_internet_users, -density_sqkm,
+                           -freedom, -gdp) %>% 
+  mutate(cluster = ifelse(country %in% young$country,
+                          'young', 'old')) %>%
+  select(-country)
+mus$cluster <- as.factor(mus$cluster)
+
+# new train/test split for mus
+mus_index <- createDataPartition(mus$cluster, p= 0.8, list = F)
+mus_train <- mus[mus_index,]
+mus_test <- mus[-mus_index,]
+
+# grow the random forest
+rf_tree <- randomForest(cluster ~ ., mus, ntree=500, importance=TRUE, na.action = na.omit )
+
+
+# View(rf_tree$predicted)
+# View(rf_tree$votes) #get the probablity of the prediction
+
+# predict
+rf_pred <- predict(rf_tree, mus_test, type = "class")
+#cm_music <- table(pred_music,test_music$cluster)
+# confusion matrix
+rf_cm <- rf_tree$confusion
+
+# error rate
+rf_error <- (1-sum(diag(rf_cm))/sum(rf_cm))
+cat("error rate of random forest: ", rf_error)
+
+# variable importance
+importance(rf_tree)
+rf_tree$importance
+
+# plot variable importance
+varImpPlot(rf_tree)
+
+```
+
+### How did Random Forest stack up against the decision tree?
+
+With an error rate of ~.4, random forest performed *slightly* better than our single decision tree, which yielded an error rate of ~0.43. Surprisingly, variable importance changed: track.popularity is still most important, but speechiness is relatively unimportant in the random forest model; instead, the second most important variable here is whether music is explicit.
 
