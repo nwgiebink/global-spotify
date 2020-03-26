@@ -3,6 +3,7 @@ title: "INFO523 Decision Trees"
 author: "Sebastian Deimen & Noah Giebink"
 date: "21 März 2020"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---

@@ -1690,17 +1690,17 @@ pred &lt;- predict(ct, spot_music_socio_features_test, type = &quot;class&quot;)
 # have a look at the variable.importance
 ct$variable.importance</code></pre>
 <pre><code>##              happiness           density_sqkm percent_internet_users 
-##             774.800000             681.466667             632.800000 
+##            774.8000000            681.4666667            632.8000000 
 ##          percent_urban             median_age                freedom 
-##             618.133333             574.133333             418.030108 
+##            618.1333333            574.1333333            418.0301075 
 ##                    gdp       track.popularity           danceability 
-##             330.991828              33.522509              16.500000 
-##         track.explicit            speechiness                valence 
-##              15.000000              12.000000              11.000000 
-##           acousticness               loudness               liveness 
-##               5.000000               3.000000               2.000000 
+##            330.9918280             34.9292473             18.5000000 
+##            speechiness         track.explicit                valence 
+##             14.0000000             13.0000000              9.0000000 
+##               loudness           acousticness               liveness 
+##              5.0000000              3.0000000              2.0000000 
 ##       instrumentalness 
-##               1.489892</code></pre>
+##              0.9932616</code></pre>
 <pre class="r"><code># confusion matrix 
 cm &lt;- table(pred, spot_music_socio_target_test)
 
@@ -1778,16 +1778,16 @@ ct2$variable.importance</code></pre>
 ##             280.966308             240.000000             180.000000 
 ##          percent_urban percent_internet_users                freedom 
 ##             122.800000             120.000000              96.696774 
-##           density_sqkm           danceability       track.popularity 
-##              92.000000              79.966667              71.429247 
-##               loudness                  tempo           acousticness 
-##              69.000000              66.866667              52.433333 
-##                valence         track.explicit                   mode 
-##              49.866667              42.000000              25.933333 
-##            speechiness                    key               liveness 
-##              25.000000              20.000000              17.000000 
+##           density_sqkm       track.popularity           danceability 
+##              92.000000              84.685986              76.016667 
+##               loudness         track.explicit           acousticness 
+##              64.500000              57.000000              50.066667 
+##                valence            speechiness                   mode 
+##              39.666667              38.750000              32.866667 
+##                  tempo               liveness                    key 
+##              32.533333              22.000000               7.000000 
 ##       instrumentalness 
-##               3.989892</code></pre>
+##               4.493262</code></pre>
 <pre class="r"><code># confusion matrix 
 cm2 &lt;- table(pred, soc_target)
 
