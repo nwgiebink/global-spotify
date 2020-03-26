@@ -2,12 +2,14 @@
 title: "INFO523 Decision Trees"
 author: "Sebastian Deimen & Noah Giebink"
 date: "21 März 2020"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 
 # packages
 
@@ -28,27 +30,35 @@ At first, we are going to make two sets of our spot-data: one only related to th
 ```{r}
 # preprocessing the data set 
 
-spot_music <- spot %>% select(track.popularity, track.explicit, danceability, key, loudness, mode,
-                        speechiness, acousticness, instrumentalness,
-                        liveness, valence, tempo, country)
+spot_music <- spot %>% select(track.popularity, track.explicit, danceability, key, 
+                              loudness, mode, speechiness, acousticness, instrumentalness,
+                              liveness, valence, tempo, country)
 
 # trying another set of varibales due to horrible error rates for the first set
 # I tried without track.popularity, makes it worse, so another try, including socio-variables
 
-spot_music_socio <- spot %>% select(track.popularity, track.explicit, danceability, key, loudness, mode, 
-                        speechiness, acousticness, instrumentalness,
-                        liveness, valence, tempo, happiness, median_age, percent_urban, 
-                        percent_internet_users, density_sqkm, freedom, gdp, country)
+spot_music_socio <- spot %>% select(track.popularity, track.explicit, danceability, 
+                                    key, loudness, mode, speechiness, acousticness,
+                                    instrumentalness,
+                                    liveness, valence, tempo, happiness, median_age,
+                                    percent_urban, percent_internet_users, density_sqkm, 
+                                    freedom, gdp, country)
 ```
 
 # Overview
 
 **Step 1**: build a decision tree to classify countries using social variables. 
+
 **Step 1B**: Interesting rules for distinguishing countries
+
 **Step 2**: use most important variable from Stage 1 to cluster countries (the tree in Step 3 performed better with fewer classes this way)
+
 **Step 3**: build a decision tree to classify clustered countries by music variables (dimensions of music taste)
+
 **Step 3B**: Interesting rules
+
 **Step 4**: Compare performance of decision tree in Step 3 to Random Forest
+
 
 # Step 1. Decision tree
 ## Split Train/Test
@@ -59,7 +69,8 @@ We split the spot_music_SOCIO data into training and test data, not using a vali
 split_index <- createDataPartition(spot_music_socio$country, p= 0.8, list = F)
 
 spot_music_socio_train <- spot_music_socio[split_index,]
-spot_music_socio_features_test <- spot_music_socio[-split_index, !(colnames(spot_music_socio) %in% c("country"))]
+spot_music_socio_features_test <- 
+  spot_music_socio[-split_index, !(colnames(spot_music_socio) %in% c("country"))]
 spot_music_socio_target_test <- spot_music_socio[-split_index, "country"]
 
 ```
@@ -218,7 +229,7 @@ test_age <- age_music2[-index_age,]
 
 ```
 
-```{r}
+```{r, cache=TRUE}
 # making a tree
 set.seed(42)
 ct_age <- rpartXse(cluster ~ ., train_age, se=0.1)
@@ -239,7 +250,7 @@ cat("DT on age clusters error rate: ",error_age)
 ```
 
 
-```{r}
+```{r, cache=TRUE}
 prp(ct_age, type = 1, extra = 103, roundint = FALSE)
 
 ```
@@ -247,14 +258,14 @@ prp(ct_age, type = 1, extra = 103, roundint = FALSE)
 Figure 6. Classification of young and old countries. 
 
 ## Step 3B: interesting rules
-1. If track popularity >= 70 (scale 0-100) and speechiness >= 0.046 (range 0.02-0.56 in our data), then people in the country are old.
-2. If track popularity <70 then people in the country are young.
-3. IF track popularity >70 and speechiness < 0.046 (extremely low), then people in the country are young.
+1. If track popularity >= 70 (scale 0-100) and speechiness >= 0.046 (range 0.02-0.56 in our data), then median age is 'old.' 
+2. If track popularity <70 then median age is 'young.'
+3. IF track popularity >70 and speechiness < 0.046 (extremely low), then median age is 'young.'
 
 
 ## Step 4. Compare performance with Random Forest
 
-```{r}
+```{r, cache=TRUE}
 set.seed(42) 
 # make sure all variables are factors
 soc_disc$track.explicit <- as.factor(soc_disc$track.explicit)
@@ -291,7 +302,6 @@ cat("error rate of random forest: ", rf_error)
 
 # variable importance
 importance(rf_tree)
-rf_tree$importance
 
 # plot variable importance
 varImpPlot(rf_tree)
@@ -300,5 +310,5 @@ varImpPlot(rf_tree)
 
 ### How did Random Forest stack up against the decision tree?
 
-With an error rate of ~.4, random forest performed *slightly* better than our single decision tree, which yielded an error rate of ~0.43. Surprisingly, variable importance changed: track.popularity is still most important, but speechiness is relatively unimportant in the random forest model; instead, the second most important variable here is whether music is explicit.
+With an error rate of ~.41, random forest performed *slightly* worse than our single decision tree, which yielded an error rate of ~0.38. Surprisingly, variable importance changed: track.popularity is still most important, but speechiness is relatively unimportant in the random forest model; instead, the second most important variable here is whether music is explicit.
 
