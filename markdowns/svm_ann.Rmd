@@ -1,0 +1,58 @@
+---
+title: "INFO523 SVM & ANN"
+author: "Noah Giebink & Sebastian Deimen"
+date: "4/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(kernlab)
+library(e1071)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+# Classify track explicitness using sociopolitical variables (SVM)
+
+## Data Preprocessing
+
+
+```{r, message=FALSE}
+spot <- read_csv('../data/spot_clean.csv') %>% select(country, track.explicit, happiness,
+                                                      median_age, percent_urban,
+                                                      percent_internet_users, density_sqkm,
+                                                      freedom, gdp)
+```
+
+Table 1. There is only one observation of sociopolitical variables per country, but ~50 unique tracks. Therefore, both levels of track.explicit (T/F) are associated with many duplicate observations, making classification difficult. To illustrate, we show the first handful of observations for the Dominican Republic.
+
+```{r, echo=FALSE}
+kable(head(spot)) %>%
+  kable_styling(latex_options = 'scale_down')
+
+```
+
+
+```{r}
+exp <- group_by(spot, country, track.explicit) %>% tally() %>% filter(track.explicit==TRUE) %>%
+  select(country, num_explicit = n)
+songs_count <- group_by(spot, country) %>% summarise(count = n()) 
+exp_count <- left_join(exp, songs_count, by = 'country')
+exp_freq <- mutate(exp_count, freq_explicit = num_explicit/count) %>% select(country, freq_explicit)
+exp_freq <- mutate(exp_freq, explicit_label = ifelse(freq_explicit > median(exp_freq$freq_explicit), 1, -1))
+
+spot_exp <- left_join(exp_freq, spot, by = 'country') %>% select(-track.explicit, -freq_explicit)
+spot_exp <- unique(spot_exp)
+```
+
+Table 2. We solve this problem by labelling countries' taste as particularly explicit (+1) or not particularly explicit (-1) and retaining only unique observations (i.e. only one observation per country).
+
+```{r, echo=FALSE}
+kable(spot_exp)%>%
+  kable_styling(latex_options = 'scale_down')
+
+```
+
