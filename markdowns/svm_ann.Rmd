@@ -13,6 +13,8 @@ library(e1071)
 library(tidyverse)
 library(knitr)
 library(kableExtra)
+library(rpart)
+library(performanceEstimation)
 ```
 
 # Classify track explicitness using sociopolitical variables (SVM)
@@ -46,6 +48,8 @@ exp_freq <- mutate(exp_freq, explicit_label = ifelse(freq_explicit > median(exp_
 
 spot_exp <- left_join(exp_freq, spot, by = 'country') %>% select(-track.explicit, -freq_explicit)
 spot_exp <- unique(spot_exp)
+spot_exp$'explicit_label' = factor(spot_exp$explicit_label)
+
 ```
 
 Table 2. We solve this problem by labelling countries' taste as particularly explicit (+1) or not particularly explicit (-1) and retaining only unique observations (i.e. only one observation per country).
@@ -56,3 +60,30 @@ kable(spot_exp)%>%
 
 ```
 
+
+```{r}
+spot_exp <- ungroup(spot_exp)
+perf <- performanceEstimation(PredTask(explicit_label~happiness+median_age+percent_urban+
+                                         percent_internet_users+density_sqkm+freedom+gdp, 
+                               data = spot_exp),
+                               Workflow(learner = 'svm'), 
+                               EstimationTask(metrics = 'acc',
+                               method=CV(nReps= 5, nFolds = 5)))
+summary(perf)
+
+# add best.tune to get best performing model
+
+# ADD train/test split or cross-validation to get model performance
+
+# build SVMs
+svm_data <- select(spot_exp, -country)
+exp_svm <- svm(explicit_label~., data = svm_data, cost = 0.01, gamma = 0.001)
+exp_svm2 <- svm(explicit_label~., data = svm_data, cost = 100, gamma = 100)
+summary(exp_svm)
+summary(exp_svm2)
+
+# predict
+
+# model performance
+
+```
