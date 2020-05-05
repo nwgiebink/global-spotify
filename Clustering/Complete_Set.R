@@ -1,11 +1,10 @@
-
+install.packages("BBmisc")
 library(tidyverse)
 library(factoextra)
 library(Rtsne)
 library(caret)
 library(cluster)
 library(dbscan)
-install.packages("BBmisc")
 library(BBmisc)
 # read the data in
 spot_in <- read_csv("/data/spot_clean.csv")
@@ -213,14 +212,19 @@ plot(res_col)
 
 
 
-#################################################################################################################
+###########################################################################################################################
 spot_in <- read_csv("data/spot_clean.csv")
 # delete the attributes which should not be in
 spot <- spot_in %>% select(-track.id, -track.name, -track.track_number, -track.type, -track.album.album_type, 
                            -track.album.id,-track.album.name, -track.album.release_date, -track.album.total_tracks)
 
+# turn 'explitict' into a dbl
+spot_in$track.explicit <- ifelse(spot_in$track.explicit == FALSE, 0,1)
+
+# select the social components
 spot_social <- spot_in %>% select(gdp,freedom,density_sqkm,percent_internet_users,percent_urban,median_age,happiness,country)
 
+# use only the unique values from each country
 spot_social <- unique(spot_social)
 spot_social$country <- as.factor(spot_social$country)
 
@@ -251,26 +255,26 @@ lines(1:22, sil)
 pam_fit <- pam(gower_mat, k = 2, diss = TRUE)
 
 # add the cluster to the original data
-spot_cluster <- data.frame(spot_social, pam_fit$clustering)
+spot_social_cluster <- data.frame(spot_social, pam_fit$clustering)  # spot_cluster is now spot_social_cluster
 
-spot_cluster1 <- spot_cluster %>% filter(pam_fit.clustering == 1) %>% select(country)
-spot_cluster2 <- spot_cluster %>% filter(pam_fit.clustering == 2) %>% select(country)
+spot_cluster_one <- spot_social_cluster %>% filter(pam_fit.clustering == 1) %>% select(country)
+spot_cluster_two <- spot_social_cluster %>% filter(pam_fit.clustering == 2) %>% select(country)
 
-spot_social_clusters <- mutate(spot_in, cluster = ifelse(country %in% spot_cluster1$country,1,2))
+spot_complete <- mutate(spot_in, cluster = ifelse(country %in% spot_cluster_one$country,1,2))
 
 
 
-res2 <- spot_cluster %>% 
+res2 <- spot_social_cluster %>% 
   rename(cluster = pam_fit.clustering) %>%
   group_by(cluster) %>%
   do(the_summary = summary(.))
 
 res2$the_summary
 
-spot$track.explicit <- ifelse(spot$track.explicit == FALSE, 0,1)
-spot_scale <- spot %>% select(track.explicit, track.popularity,danceability,energy,loudness,mode, speechiness,acousticness, instrumentalness, liveness,valence, tempo, duration_min)
 
-# write the own scale funtion
+spot_scale <- spot_in %>% select(track.explicit, track.popularity,danceability,energy,loudness,mode, speechiness,acousticness, instrumentalness, liveness,valence, tempo, duration_min)
+
+# write our own scale funtion
 
 scale_self <- function(x){
   norm=(x-min(x))/(max(x) - min(x))
@@ -279,9 +283,28 @@ scale_self <- function(x){
 
 spot_scale <- data.frame(apply(spot_scale, MARGIN=2, FUN=scale_self))
 
+# adding the clusters back to spot_scale
+
+spot_scale <- data.frame(spot_scale, spot_complete$cluster) %>%
+  rename(cluster = spot_complete.cluster)
+
+# Finally, make two data frames, one for each cluster and plot those
+
+set_one <- spot_scale %>% filter(cluster == 1)
+set_two <- spot_scale %>% filter(cluster == 2)
+
 library(reshape2)
-ggplot(melt(spot_scale), aes(variable, value, color = variable, fill = variable)) + 
+
+# plot cluster one
+ggplot(melt(set_one[,-14]), aes(variable, value, color = variable, fill = variable)) + 
   geom_boxplot() + 
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1))
- 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) + 
+  xlab('Cluster one')
+
+# plot cluster two 
+ggplot(melt(set_two[,-14]), aes(variable, value, color = variable, fill = variable)) + 
+  geom_boxplot() + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) + 
+  xlab('Cluster two')
