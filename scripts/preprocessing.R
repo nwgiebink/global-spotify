@@ -21,6 +21,38 @@ library(ggpubr)
 spot <- readRDS('data/top_tracks.rds')
 
 
+
+
+# get top track for each country
+
+
+discussion_participation = function(section){
+  long <- pivot_longer(section, -Name, names_to = 'week', values_to = 'score', values_drop_na = TRUE)
+  
+  ranked <- arrange(long, Name, score)
+  
+  top <- group_by(ranked, Name) %>%
+    mutate(rank = rank(score,ties.method = "first")) %>%
+    ungroup() %>%
+    filter(rank > 2)
+  
+  points <- top %>% group_by(Name) %>% summarise(points = sum(score))
+  
+  grade <- points %>% mutate(grade = 60*(points/12))
+  return(grade)
+
+spot_country <- select(spot, name, track.name, track.external_urls.spotify)
+spot_country <- mutate(spot_country, country = str_remove(spot_country$name, 
+                                                      regex(' top 50', 
+                                                            ignore_case = TRUE))) 
+spot_country <- mutate(spot_country, country = str_replace(spot_country$country, 
+                                                       pattern = "China Hits 2019 - China - China 2019", 
+                                                       replacement = 'China'))
+spot_country <- select(spot_country, country, track.name, url = track.external_urls.spotify)
+
+spot_country_top = spot_country[!duplicated(spot_country$country),]
+
+  
 # clean spot -> spot_clean
 # select relevant columns
 spot_clean <- select(spot, -added_at, -is_local, -primary_color, -contains('added'), -contains('uri'),
