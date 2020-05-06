@@ -196,6 +196,8 @@ Our goal is to classify countries by music tastes. To make results more interpre
 
 **In essence, our question is: what are the most important music variables that distinguish 'old' countries' music taste from 'young' countries?**
 
+
+
 ```{r}
 set.seed(42)
 age <- spot_music_socio %>% group_by(country) %>% 
@@ -218,23 +220,36 @@ old <- filter(age_clust, cluster == 2) %>%
 age_music <- spot_music %>% mutate(cluster = 
                                       ifelse(country %in% young$country,
                                              'young', 'old'))
+
+# age_music_grouped <- age_music %>%
+#  group_by(country, cluster) %>%
+#  summarise_if(is.numeric, mean) %>%
+#  ungroup(age_music_grouped)
 ```
 
 ```{r}
 # get rid of country
 age_music2 <- select(age_music, -country)
-# splitting the data 
+# splitting the data
 index_age <- sample(1:nrow(age_music2),0.8*nrow(age_music2))
 train_age <- age_music2[index_age,]
 test_age <- age_music2[-index_age,]
+
+# # get rid of country
+# age_music2 <- select(age_music_grouped, -country)
+# # splitting the data 
+# index_age <- sample(1:nrow(age_music2),0.8*nrow(age_music2))
+# train_age <- age_music2[index_age,]
+# test_age <- age_music2[-index_age,]
 
 ```
 
 ```{r, cache=TRUE}
 # making a tree
 set.seed(42)
-ct_age <- rpartXse(cluster ~ ., train_age, se=0.1)
+# ct_age <- rpartXse(cluster ~ ., train_age, se=0.1)
 
+ct_age <- rpartXse(cluster ~ ., train_age, control = list(maxdepth = 3))
 # prediction using the trees
 
 pred_age <- predict(ct_age, test_age, type = "class")
@@ -252,7 +267,7 @@ cat("DT on age clusters error rate: ",error_age)
 
 
 ```{r, cache=TRUE}
-prp(ct_age, type = 1, extra = 103, roundint = FALSE)
+tree_age <- prp(ct_age, type = 1, extra = 103, roundint = FALSE)
 
 ```
 
@@ -313,3 +328,24 @@ varImpPlot(rf_tree)
 
 With an error rate of ~.41, random forest performed *slightly* worse than our single decision tree, which yielded an error rate of ~0.38. Surprisingly, variable importance changed: track.popularity is still most important, but speechiness is relatively unimportant in the random forest model; instead, the second most important variable here is whether music is explicit.
 
+```{r, cache=TRUE}
+# making a tree
+set.seed(42)
+ct_mus_age <- rpartXse(cluster ~ ., mus_train, control = list(maxdepth = 3))
+
+# prediction using the trees
+
+pred_mus_age <- predict(ct_mus_age, mus_test, type = "class")
+
+# have a look at the variable.importance
+ct_mus_age$variable.importance
+
+# contingency tables
+cm_mus_age <- table(pred_mus_age, mus_test$cluster)
+
+# error rate
+error_mus_age <- (1-sum(diag(cm_mus_age))/sum(cm_mus_age))
+cat("DT on age clusters error rate: ",error_mus_age)
+
+tree_mus_age <- prp(ct_mus_age, type = 1, extra = 103, roundint = FALSE)
+```
