@@ -202,7 +202,14 @@ Our goal is to classify countries by music tastes. To make results more interpre
 set.seed(42)
 age <- spot_music_socio %>% group_by(country) %>% 
   summarise(age = mean(median_age))
-age_hist <- hist(age$age) 
+
+
+ggplot(age, aes(x=age)) +
+  geom_histogram(color = "#034c41",fill = "#069680",bins = 6) +
+  labs(x = "Age", y="Counts") +
+  theme(axis.title = element_text(size = rel(1.8))) +
+  theme_bw()
+
 
 # cluster countries by happiness, 3 clusters
 a <- kmeans(age$age, 2)
