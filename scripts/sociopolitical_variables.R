@@ -4,7 +4,7 @@
 
 
 # Packages
-library(tidyverse)
+library(tidyverse) happiness, age, percent_urban, percent_internet_users, density_sqkm, freedom 
 
 # Data
 happy <- read_csv("data/happines2019.csv")

@@ -37,7 +37,7 @@ spot <- spot %>% select(track.popularity,
 
 spot_cor <- cor(spot) # make correlation matrix
 corrplot(spot_cor, method = 'number', number.digits = 2,
-         number.cex = 3/5) # find correlations by visualizing corrplot
+         number.cex = 3/5,tl.col = "#066396") # find correlations by visualizing corrplot
 
 ```
 
@@ -85,7 +85,15 @@ spot3_disc <- mutate_all(spot3, funs(disc))
 ```
 
 ```{r}
-hist(pop$track.popularity)
+
+
+# making nicer plots for the presentation
+ggplot(pop, aes(x=track.popularity)) +
+  geom_histogram(color = "#034c41",fill = "#069680") +
+  labs(x = "Track Popularity", y="Counts") +
+  theme(axis.title = element_text(size = rel(1.8))) +
+  theme_bw()
+
 ```
 
 Figure 2. Distribution of track.popularity values for songs in Top 50 playlists for various countries. Values are left-skewed. 
@@ -110,9 +118,12 @@ spot_disc$track.popularity <- factor(track.popularity$track.popularity) # make f
 ```{r}
 spot_long <- pivot_longer(spot_disc, cols = colnames(spot_disc),
                           names_to = 'variable', values_to = 'level')
+
 ggplot(spot_long, aes(level))+
-  geom_bar()+
+  geom_bar(aes(fill = level))+
+  scale_fill_manual(values=c("#069680","#960664","#380696","#D20D71")) +
   facet_wrap(~variable)+
+  theme_bw() +
   theme(axis.text.x = element_text(angle = 90))
 ```
 Figure 3. Distribution of discretized levels across all variables. 
@@ -138,7 +149,8 @@ inspect(spot_trans[1])
 
 ### Plot frequent itemsets
 ```{r}
-itemFrequencyPlot(spot_trans, support = 0.2, cex.names = 0.8)
+
+itemFrequencyPlot(spot_trans, support = 0.2, cex.names = 0.8,col = "#380696")
 
 ```
 Figure 4. Most frequent itemsets (support above 0.2).

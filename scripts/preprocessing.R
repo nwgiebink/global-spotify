@@ -52,16 +52,21 @@ pop <- spot_clean %>% group_by(country) %>%
 
 # plot track popularity by country, ranked
 ggplot(spot_clean, aes(reorder(country, -track.popularity), track.popularity)) +
-  geom_violin(draw_quantiles = 0.5)+
+  geom_violin(draw_quantiles = 0.5, fill= "#960664")+
+  theme_bw() +
   theme(axis.text.x = element_text(angle = 90))+
+  theme(axis.title = element_text(size = rel(1.8))) +
   xlab('Country') +
   ylab('Top 50 Track Popularity')
 
+
+
 # 1. ---- 
 #' What attributes are in our data set? 
+
 glimpse(spot_clean)
 
-#' We have 28 attributes, across data types logical, character, integer, 
+#' We have 25 attributes, across data types logical, character, integer, 
 #' double, and factor
 
 # key should be a factor (discrete key categories)
@@ -75,9 +80,9 @@ glimpse(spot_clean)
 # 2. ----
 #' Do you have highly correlated attributes? ----
 #' How did you find out about the correlations or lack of correlations?
-spot_num <- select_if(spot_clean, is.numeric)
+spot_num <- select_if(spot_clean, is.numeric) #####################################################STOPED HERE FOR PRESENTATION VORBEREITUNG
 spot_cor <- cor(spot_num) # make correlation matrix
-corrplot(spot_cor) # find correlations by visualizing corrplot
+corrplot(spot_cor, tl.col = "#066396") # find correlations by visualizing corrplot
 # we can see that "loudness" is highly correlated with "energy", as well as "valence" is correlated with "danceability", "energy" and "loudness"
 
 #' There are correlated variables that are mostly redundant, 
@@ -100,7 +105,7 @@ hist(spot_clean$valence)
 
 # is valence predicted by country?
 val_lm <- lm(valence~country, data = spot_clean)       
-# summary(val_lm) (p < 2.2e-16)
+summary(val_lm)# (p < 2.2e-16)
 
 # Method 1: chi merge (package discretization)
 # discretize attribute 'valence' over class 'country'
@@ -137,7 +142,7 @@ ggarrange(plot_merg, plot_bin)
 #' which would lead to a larger and larger bin width. Perhaps?
 
 
-# which discretization method preserves the countries' mean valence better?
+# which discretization method preserves the countries' mean valence better?             ##############################come back here
 # Normalize valence, binned_valence, and merged_valence to compare magnitude
 norm <- function(variable){(variable - min(variable))/(max(variable) - min(variable))}
 
