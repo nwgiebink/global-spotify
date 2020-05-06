@@ -25,22 +25,6 @@ spot <- readRDS('data/top_tracks.rds')
 
 # get top track for each country
 
-
-discussion_participation = function(section){
-  long <- pivot_longer(section, -Name, names_to = 'week', values_to = 'score', values_drop_na = TRUE)
-  
-  ranked <- arrange(long, Name, score)
-  
-  top <- group_by(ranked, Name) %>%
-    mutate(rank = rank(score,ties.method = "first")) %>%
-    ungroup() %>%
-    filter(rank > 2)
-  
-  points <- top %>% group_by(Name) %>% summarise(points = sum(score))
-  
-  grade <- points %>% mutate(grade = 60*(points/12))
-  return(grade)
-
 spot_country <- select(spot, name, track.name, track.external_urls.spotify)
 spot_country <- mutate(spot_country, country = str_remove(spot_country$name, 
                                                       regex(' top 50', 
