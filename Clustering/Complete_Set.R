@@ -1,4 +1,4 @@
-install.packages("BBmisc")
+#install.packages("BBmisc")
 library(tidyverse)
 library(factoextra)
 library(Rtsne)
@@ -7,12 +7,16 @@ library(cluster)
 library(dbscan)
 library(BBmisc)
 # read the data in
-spot_in <- read_csv("/data/spot_clean.csv")
+spot_in <- read_csv("data/spot_clean.csv")
 
 
 # delete the attributes which should not be in
 spot <- spot_in %>% select(-track.id, -track.name, -track.track_number, -track.type, -track.album.album_type, 
                            -track.album.id,-track.album.name, -track.album.release_date, -track.album.total_tracks)
+
+# turning into a dataframe to avoid an error with daisy
+
+spot <- as.data.frame(spot)
 
 
 # change mode to minor and major (major == 1, minor == 2)
@@ -36,13 +40,25 @@ gower_mat_1 <- as.matrix(gower_dist_1)
 sil <- c(NA)
 
 for(i in 2:50){
-  pam_fit <- pam(gower_mat, diss = TRUE, k = i)
+  pam_fit <- pam(gower_mat_1, diss = TRUE, k = i)
   
   sil[i] <- pam_fit$silinfo$avg.width
 }
 
-plot(1:50, sil)
-lines(1:50, sil)
+# make nice plots
+sil_to_plot <- data.frame(index = seq(1:50), sil = sil)
+
+ggplot(sil_to_plot, aes(x=index,y = sil)) +     # "#069680","#960664","#380696")
+  geom_point(color = "#069680", size =3) +
+  geom_line(color = "#D35612") +
+  geom_vline(xintercept = 23, linetype="dotted", color = "#380696", size=1) +
+  geom_text(aes(23,0.08,label = "k = 23", vjust = 0, hjust = 1.5))+
+  labs(x = "Number of clusters", y = "Silhouette Width") +
+  ylim(0.08,0.33) +
+  theme_classic() +
+  theme(axis.title = element_text(size = rel(1.8)))
+
+
 
 # found k = 23 as best (which is the number of countries in the set)
 
@@ -74,6 +90,8 @@ ggplot(aes(x=X,y=Y), data = tsne_data_1) +
   geom_point(aes(color=cluster))
 
 
+
+   
 
 
 
@@ -247,12 +265,48 @@ for(i in 2:22){
   sil[i] <- pam_fit$silinfo$avg.width
 }
 
-plot(1:22, sil)
-lines(1:22, sil)
+
+sil_to_plot <- data.frame(index = seq(1:22), sil = sil)
+
+ggplot(sil_to_plot, aes(x=index,y = sil)) +     # "#069680","#960664","#380696")
+  geom_point(color = "#069680", size =3) +
+  geom_line(color = "#D35612") +
+  geom_vline(xintercept = 2, linetype="dotted", color = "#380696", size=1) +
+  geom_text(aes(2,0,label = 2, hjust = -1 ))+
+  labs(x = "Number of clusters", y = "Silhouette Width") +
+  theme_classic() +
+  theme(axis.title = element_text(size = rel(1.8)))
+
+
 
 # found k = 2 as best 
 
 pam_fit <- pam(gower_mat, k = 2, diss = TRUE)
+
+
+# trying to plot 
+
+tsne_obj <- Rtsne(gower_dist, is_distance = TRUE, perplexity = 3)
+
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X","Y")) %>%
+  mutate(cluster = factor(pam_fit$clustering),country = spot_social$country)
+
+ggplot(aes(x=X,y=Y), data = tsne_data) + 
+  geom_point(aes(color=cluster), size = 3)
+
+# try to find the two red pounints far away from cluster one
+
+
+tsne_data %>%
+     filter(X > 30 & X < 40,
+            Y > -20 & Y < 0) %>%
+     left_join(spot_social, by = "country") %>%
+     collect %>%
+     .[["country"]]
+
+# -> RuSSIA and CHINA
 
 # add the cluster to the original data
 spot_social_cluster <- data.frame(spot_social, pam_fit$clustering)  # spot_cluster is now spot_social_cluster
@@ -299,12 +353,16 @@ library(reshape2)
 ggplot(melt(set_one[,-14]), aes(variable, value, color = variable, fill = variable)) + 
   geom_boxplot() + 
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1)) + 
-  xlab('Cluster one')
+  theme(axis.text.x = element_text(angle = 60, hjust = 1),text = element_text(size=14)) + 
+  theme(axis.title = element_text(size = rel(1.8))) +
+  theme(legend.position = "none") +
+  xlab('Cluster Red')
 
 # plot cluster two 
-ggplot(melt(set_two[,-14]), aes(variable, value, color = variable, fill = variable)) + 
-  geom_boxplot() + 
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1)) + 
-  xlab('Cluster two')
+  ggplot(melt(set_two[,-14]), aes(variable, value, color = variable, fill = variable)) + 
+    geom_boxplot() + 
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1),text = element_text(size=14)) + 
+    theme(axis.title = element_text(size = rel(1.8))) +
+    theme(legend.position = "none") +
+    xlab('Cluster Blue')
