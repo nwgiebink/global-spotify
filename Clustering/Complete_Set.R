@@ -1,3 +1,6 @@
+# Clustering R exercise
+# Sebastian Deimen and Noah Giebink
+
 #install.packages("BBmisc")
 library(tidyverse)
 library(factoextra)
@@ -37,13 +40,16 @@ gower_mat_1 <- as.matrix(gower_dist_1)
 
 # checking for number of clusters using silhouette coefficient
 
-sil <- c(NA)
-
-for(i in 2:50){
-  pam_fit <- pam(gower_mat_1, diss = TRUE, k = i)
-  
-  sil[i] <- pam_fit$silinfo$avg.width
-}
+# sil <- c(NA)
+# 
+# for(i in 2:50){
+#   pam_fit <- pam(gower_mat_1, diss = TRUE, k = i)
+#   
+#   sil[i] <- pam_fit$silinfo$avg.width
+# }
+# 
+# saveRDS(sil, 'sil.rds')
+sil <- readRDS('sil.rds')
 
 # make nice plots
 sil_to_plot <- data.frame(index = seq(1:50), sil = sil)
@@ -96,14 +102,6 @@ ggplot(aes(x=X,y=Y), data = tsne_data_1) +
 
 
 # does not seem to be very usefull, so new try: #############################################################################
-
-spot_in <- read_csv("C:/Users/Sebastian/Dropbox/A_UofA/INFO 523/final_project/global-spotify/data/spot_clean.csv")
-spot <- spot_in %>% select(-track.id, -track.name, -track.track_number, -track.type, -track.album.album_type, 
-                           -track.album.id,-track.album.name, -track.album.release_date, -track.album.total_tracks)
-spot$mode <- if_else(spot$mode == 1, 1, 2)
-
-spot$country <- as.factor(spot$country)
-
 
 #gower distance matrix without country
 gower_dist <- daisy(spot[,-16],
@@ -159,12 +157,14 @@ ggplot(aes(x=X,y=Y), data = tsne_data) +
 
 # and again, trying an DBSCAN cluster #####################################################################################
 
+# deselect country and explicit mode
+
 spot_dbscan_in <- spot_in %>% select(-track.id, -track.name, -track.track_number, -track.type, -track.album.album_type, 
                                      -track.album.id,-track.album.name, -track.album.release_date, -track.album.total_tracks)
-spot_dbscan <- spot_optics_in %>% select(-track.explicit, -country)
+spot_dbscan <- spot_dbscan_in %>% select(-track.explicit, -country)
 
 # setting minPts = 19 for dbscan and a bit higher for optics, determining eps by looking at the knn-knee
-kNNdistplot(spot_optics, k=19)
+kNNdistplot(spot_dbscan, k=19)
 abline(h=38, col ="red", lty=2) 
 
 dbscan_res <- dbscan(spot_dbscan, eps=38, minPts = 19)
@@ -198,7 +198,7 @@ spot_optics_in <- spot_in %>% select(-track.id, -track.name, -track.track_number
 # deselect country and explicit mode
 spot_optics <- spot_optics_in %>% select(-track.explicit, -country)
 
-# don't know how to choose the right number of minpoints, looks different for 25 and 30
+# using same eps from dbscan (taken from kneeplot)
 opt_res <- optics(spot_optics, eps= 38, minPts = 30)
 opt_res
 
@@ -212,31 +212,38 @@ abline(h=35, col ="red", lty=2)
 
 # try again using gower dist
 #gower distance matrix without country
-gower_dist_opt <- daisy(spot_optics[,-16],
-                      metric = "manhatten",
-                      type = list(asymm = 1))
+spot_optics <- as.data.frame(spot_optics)
+gower_dist_opt <- daisy(spot_optics, 
+                        metric = "manhattan")
 
 summary(gower_dist_opt)
 
-gower_mat <- as.matrix(gower_dist)
+gower_mat_opt <- as.matrix(gower_dist_opt)
 
 kNNdistplot(gower_dist_opt, k=19)
-abline(h=0.14, col ="red", lty=2) 
+abline(h=60, col ="red", lty=2) 
 
 # following chp10.doc
-(res_col <- optics(gower_dist, eps=10, minPts = 10))
+# eps and minPts taken from KNNdisplot
+(res_col <- optics(gower_dist_opt, eps=60, minPts = 19))
 plot(res_col)
 (res_col_d <- extractDBSCAN(res_col, eps_cl=0.14))
 
+# Unfortunately, we were not able to recover any clusters using optics. 
+# This is despite using eps and minPts values derived from KNNdistplot.
+# It appears optics is highly sensitive to hyperparameter values, 
+# which highlights the downside to this approach.
 
 
 ###########################################################################################################################
+
+
 spot_in <- read_csv("data/spot_clean.csv")
 # delete the attributes which should not be in
 spot <- spot_in %>% select(-track.id, -track.name, -track.track_number, -track.type, -track.album.album_type, 
                            -track.album.id,-track.album.name, -track.album.release_date, -track.album.total_tracks)
 
-# turn 'explitict' into a dbl
+# turn 'explicit' into a dbl
 spot_in$track.explicit <- ifelse(spot_in$track.explicit == FALSE, 0,1)
 
 # select the social components
@@ -296,7 +303,7 @@ tsne_data <- tsne_obj$Y %>%
 ggplot(aes(x=X,y=Y), data = tsne_data) + 
   geom_point(aes(color=cluster), size = 3)
 
-# try to find the two red pounints far away from cluster one
+# try to find the two red points far away from cluster one
 
 
 tsne_data %>%
@@ -306,7 +313,7 @@ tsne_data %>%
      collect %>%
      .[["country"]]
 
-# -> RuSSIA and CHINA
+# -> RUSSIA and CHINA
 
 # add the cluster to the original data
 spot_social_cluster <- data.frame(spot_social, pam_fit$clustering)  # spot_cluster is now spot_social_cluster
